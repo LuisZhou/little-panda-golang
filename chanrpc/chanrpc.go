@@ -16,8 +16,10 @@ type Server struct {
 	// id -> function
 	// function fomat:
 	// func(args ... interface{}) interface{}
-	functions map[interface{}]interface{}
-	ChanCall  chan *CallInfo
+	functions    map[interface{}]interface{}
+	ChanCall     chan *CallInfo
+	closeSig     chan bool
+	isUseRoutine bool
 }
 
 // wrapper of call info for server channel.
@@ -48,13 +50,14 @@ func NewServer(bufsize int) *Server {
 	s := new(Server)
 	s.functions = make(map[interface{}]interface{})
 	s.ChanCall = make(chan *CallInfo, bufsize)
+	s.closeSig = make(chan bool)
 	return s
 }
 
 // you must call the function before calling Open and Go
 func (s *Server) Register(id interface{}, f interface{}) {
 	switch f.(type) {
-	case func(...interface{}) interface{}:
+	case func([]interface{}) interface{}:
 	default:
 		panic(fmt.Sprintf("function id %v: definition of function is invalid", id))
 	}
@@ -110,7 +113,8 @@ func (s *Server) exec(ci *CallInfo) (err error) {
 		panic(fmt.Sprintf("no function for %s", ci.id))
 	}
 
-	ret := f.(func(...interface{}) interface{})(ci.args)
+	// todo:f return err ret or just use panic?
+	ret := f.(func([]interface{}) interface{})(ci.args)
 	return s.ret(ci, &RetInfo{ret: ret})
 
 	// panic("bug")
@@ -129,14 +133,21 @@ func (s *Server) Exec(ci *CallInfo) {
 }
 
 func (s *Server) Start() {
+	// is this safe?
+	s.isUseRoutine = true
 	go func() {
 		for {
 			// add close signal channel.
 			// select use the first or random.
-			ci := <-s.ChanCall
-			err := s.exec(ci)
-			if err != nil {
-				log.Error("%v", err)
+			select {
+			case <-s.closeSig:
+				s.close()
+				return
+			case ci := <-s.ChanCall:
+				err := s.exec(ci)
+				if err != nil {
+					log.Error("%v", err)
+				}
 			}
 		}
 		// log: server exit.
@@ -167,8 +178,7 @@ func (s *Server) Call(id interface{}, args ...interface{}) (interface{}, error) 
 	return s.Open(0).Call(id, args...)
 }
 
-// todo: is this ok?
-func (s *Server) Close() {
+func (s *Server) close() {
 	// what's that side effect?
 	close(s.ChanCall)
 
@@ -177,6 +187,15 @@ func (s *Server) Close() {
 		s.ret(ci, &RetInfo{
 			err: errors.New("chanrpc server closed"),
 		})
+	}
+}
+
+// todo: is this ok?
+func (s *Server) Close() {
+	if s.isUseRoutine {
+		s.closeSig <- true
+	} else {
+		s.close()
 	}
 }
 
@@ -283,7 +302,9 @@ func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 	var cb_cast CallBack
 
 	if cb != nil {
-		cb_tmp, ok := cb.(CallBack)
+		cb_tmp, ok := cb.(func(ret interface{}, err error)) // can not use Callback here!
+		fmt.Println("cast", cb_tmp, ok)
+
 		if ok == false {
 			cb_cast = nil
 		} else {
@@ -304,6 +325,8 @@ func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 }
 
 func execCb(ri *RetInfo) {
+	fmt.Println("execCb", ri.cb)
+
 	defer func() {
 		if r := recover(); r != nil {
 			if conf.LenStackBuf > 0 {
@@ -340,6 +363,7 @@ func (c *Client) Idle() bool {
 func (c *Client) Long() {
 	go func() {
 		for {
+			fmt.Println("Long wait")
 			c.Cb(<-c.ChanAsynRet)
 		}
 	}()
