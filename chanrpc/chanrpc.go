@@ -131,12 +131,15 @@ func (s *Server) Exec(ci *CallInfo) {
 func (s *Server) Start() {
 	go func() {
 		for {
+			// add close signal channel.
+			// select use the first or random.
 			ci := <-s.ChanCall
 			err := s.exec(ci)
 			if err != nil {
 				log.Error("%v", err)
 			}
 		}
+		// log: server exit.
 	}()
 }
 
@@ -166,8 +169,10 @@ func (s *Server) Call(id interface{}, args ...interface{}) (interface{}, error) 
 
 // todo: is this ok?
 func (s *Server) Close() {
+	// what's that side effect?
 	close(s.ChanCall)
 
+	// move this to Start() if goroutine in Start() get the close signal.
 	for ci := range s.ChanCall {
 		s.ret(ci, &RetInfo{
 			err: errors.New("chanrpc server closed"),
