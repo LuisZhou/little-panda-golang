@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/LuisZhou/little-panda-golang/chanrpc"
 	"sync"
-	"testing"
+	//"testing"
 	//"sync"
 )
 
@@ -13,10 +13,7 @@ import (
 // 	t.Log("Say bye")
 // }
 
-//func Example() {
-func TestPrintSomething(t *testing.T) {
-	fmt.Println("start test")
-
+func Example() {
 	var wg sync.WaitGroup
 
 	s := chanrpc.NewServer(10)
@@ -28,7 +25,6 @@ func TestPrintSomething(t *testing.T) {
 	s.Register("add", func(args []interface{}) interface{} {
 		n1 := args[0].(int)
 		n2 := args[1].(int)
-		fmt.Println(n1, n2)
 		return n1 + n2
 	})
 
@@ -57,4 +53,5 @@ func TestPrintSomething(t *testing.T) {
 	// Output:
 	// f0 1
 	// 1
+	// 3
 }

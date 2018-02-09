@@ -8,8 +8,6 @@ import (
 	"runtime"
 )
 
-type CallBack func(ret interface{}, err error)
-
 // one server per goroutine (goroutine not safe)
 // one client per goroutine (goroutine not safe)
 type Server struct {
@@ -28,14 +26,14 @@ type CallInfo struct {
 	id      interface{}   // id to map function
 	args    []interface{} // args to call function
 	chanRet chan *RetInfo // channel for return value for caller or agent of caller
-	cb      CallBack
+	cb      func(interface{}, error)
 }
 
 // wrapper of return info for caller or agent of caller.
 type RetInfo struct {
 	ret interface{}
 	err error
-	cb  CallBack
+	cb  func(interface{}, error)
 }
 
 // Client struct.
@@ -271,7 +269,7 @@ func (c *Client) Call(id interface{}, args ...interface{}) (interface{}, error) 
 	return ri.ret, ri.err
 }
 
-func (c *Client) asynCall(id interface{}, args []interface{}, cb CallBack) {
+func (c *Client) asynCall(id interface{}, args []interface{}, cb func(interface{}, error)) {
 	_, err := c.validate(id)
 	if err != nil {
 		c.ChanAsynRet <- &RetInfo{err: err, cb: cb}
@@ -299,34 +297,23 @@ func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 	args := _args[:len(_args)-1]
 	cb := _args[len(_args)-1]
 
-	var cb_cast CallBack
-
-	if cb != nil {
-		cb_tmp, ok := cb.(func(ret interface{}, err error)) // can not use Callback here!
-		fmt.Println("cast", cb_tmp, ok)
-
-		if ok == false {
-			cb_cast = nil
-		} else {
-			cb_cast = cb_tmp
-		}
-	} else {
-		cb_cast = nil
+	switch cb.(type) {
+	case func(ret interface{}, err error):
+	default:
+		panic("definition of callback function is invalid")
 	}
 
 	// too many calls
 	if c.pendingAsynCall >= cap(c.ChanAsynRet) {
-		execCb(&RetInfo{err: errors.New("too many calls"), cb: cb_cast})
+		execCb(&RetInfo{err: errors.New("too many calls"), cb: cb.(func(interface{}, error))})
 		return
 	}
 
-	c.asynCall(id, args, cb_cast)
+	c.asynCall(id, args, cb.(func(interface{}, error)))
 	c.pendingAsynCall++
 }
 
 func execCb(ri *RetInfo) {
-	fmt.Println("execCb", ri.cb)
-
 	defer func() {
 		if r := recover(); r != nil {
 			if conf.LenStackBuf > 0 {
@@ -363,7 +350,6 @@ func (c *Client) Idle() bool {
 func (c *Client) Long() {
 	go func() {
 		for {
-			fmt.Println("Long wait")
 			c.Cb(<-c.ChanAsynRet)
 		}
 	}()
