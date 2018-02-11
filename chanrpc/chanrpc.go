@@ -20,6 +20,7 @@ type Server struct {
 	closeSig     chan bool
 	isUseRoutine bool
 	timeoutRet   time.Duration
+	skipCounter  int
 }
 
 // wrapper of call info for server channel.
@@ -44,6 +45,8 @@ type Client struct {
 	chanSyncRet     chan *RetInfo
 	ChanAsynRet     chan *RetInfo // If the caller care the return of async call, just use a goroutine to wait the result.
 	pendingAsynCall int
+	AllowOverFlood  bool
+	timeoutRet      time.Duration
 }
 
 func NewServer(bufsize int, timeoutRet time.Duration) *Server {
@@ -84,16 +87,11 @@ func (s *Server) ret(ci *CallInfo, ri *RetInfo) (err error) {
 
 	ri.cb = ci.cb
 
-	//ci.chanRet <- ri
-	//for {
 	select {
 	case ci.chanRet <- ri:
 	case <-time.After(time.Millisecond * s.timeoutRet):
-		fmt.Printf("timed out %d %v\n", s.timeoutRet, ri.ret)
-		//default:
-		//	fmt.Printf("what? \n")
+		s.skipCounter++
 	}
-	//}
 	return
 }
 
@@ -109,6 +107,7 @@ func (s *Server) exec(ci *CallInfo) (err error) {
 			}
 
 			s.ret(ci, &RetInfo{err: fmt.Errorf("%v", r)})
+			//s.ret(ci, &RetInfo{err: fmt.Errorf("abc")})
 		}
 	}()
 
@@ -180,7 +179,7 @@ func (s *Server) Go(id interface{}, args ...interface{}) {
 
 // goroutine safe
 func (s *Server) Call(id interface{}, args ...interface{}) (interface{}, error) {
-	return s.Open(0).Call(id, args...)
+	return s.Open(0, time.Second*60).Call(id, args...)
 }
 
 func (s *Server) close() {
@@ -205,16 +204,21 @@ func (s *Server) Close() {
 }
 
 // goroutine safe
-func (s *Server) Open(l int) *Client {
-	c := NewClient(l)
+func (s *Server) Open(l int, timeoutRet time.Duration) *Client {
+	c := NewClient(l, timeoutRet)
 	c.Attach(s)
 	return c
 }
 
-func NewClient(size int) *Client {
+func (s *Server) SkipCounter() int {
+	return s.skipCounter
+}
+
+func NewClient(size int, timeoutRet time.Duration) *Client {
 	c := new(Client)
 	c.chanSyncRet = make(chan *RetInfo, 1)
 	c.ChanAsynRet = make(chan *RetInfo, size)
+	c.timeoutRet = timeoutRet
 	return c
 }
 
@@ -235,7 +239,9 @@ func (c *Client) call(ci *CallInfo, block bool) (err error) {
 		// if full, just drop it.
 		select {
 		case c.s.ChanCall <- ci:
-		case <-time.After(time.Millisecond * 50): // this may side effect, because this take time too.
+		case <-time.After(c.timeoutRet):
+			// this may side effect, because this take time too.
+			// todo, this may be configurable.
 		default:
 			err = errors.New("server chanrpc channel full") // how?
 		}
@@ -316,10 +322,10 @@ func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 	}
 
 	// too many calls
-	// if c.pendingAsynCall >= cap(c.ChanAsynRet) {
-	// 	execCb(&RetInfo{err: errors.New("too many calls"), cb: cb.(func(interface{}, error))})
-	// 	return
-	// }
+	if c.AllowOverFlood == false && c.pendingAsynCall >= cap(c.ChanAsynRet) {
+		execCb(&RetInfo{err: errors.New("too many calls"), cb: cb.(func(interface{}, error))})
+		return
+	}
 
 	c.asynCall(id, args, cb.(func(interface{}, error)))
 	c.pendingAsynCall++
