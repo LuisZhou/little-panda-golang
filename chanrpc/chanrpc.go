@@ -6,6 +6,7 @@ import (
 	"github.com/LuisZhou/little-panda-golang/conf"
 	"github.com/LuisZhou/little-panda-golang/log"
 	"runtime"
+	"time"
 )
 
 // one server per goroutine (goroutine not safe)
@@ -18,6 +19,7 @@ type Server struct {
 	ChanCall     chan *CallInfo
 	closeSig     chan bool
 	isUseRoutine bool
+	timeoutRet   time.Duration
 }
 
 // wrapper of call info for server channel.
@@ -44,18 +46,19 @@ type Client struct {
 	pendingAsynCall int
 }
 
-func NewServer(bufsize int) *Server {
+func NewServer(bufsize int, timeoutRet time.Duration) *Server {
 	s := new(Server)
 	s.functions = make(map[interface{}]interface{})
 	s.ChanCall = make(chan *CallInfo, bufsize)
 	s.closeSig = make(chan bool)
+	s.timeoutRet = timeoutRet
 	return s
 }
 
 // you must call the function before calling Open and Go
 func (s *Server) Register(id interface{}, f interface{}) {
 	switch f.(type) {
-	case func([]interface{}) interface{}:
+	case func([]interface{}) (ret interface{}, err error):
 	default:
 		panic(fmt.Sprintf("function id %v: definition of function is invalid", id))
 	}
@@ -81,13 +84,16 @@ func (s *Server) ret(ci *CallInfo, ri *RetInfo) (err error) {
 
 	ri.cb = ci.cb
 
-	// todo: this is danger: if the client is block, for the reason of exhausted channel buffer.
-	// The server will block too. Use select here.
-	// selection:
-	// 1. just drop the ret if no channel buffer.
-	// 2. use large buffer.
-	// 3. wait something, drop the ret if timeout.
-	ci.chanRet <- ri
+	//ci.chanRet <- ri
+	//for {
+	select {
+	case ci.chanRet <- ri:
+	case <-time.After(time.Millisecond * s.timeoutRet):
+		fmt.Printf("timed out %d %v\n", s.timeoutRet, ri.ret)
+		//default:
+		//	fmt.Printf("what? \n")
+	}
+	//}
 	return
 }
 
@@ -111,9 +117,10 @@ func (s *Server) exec(ci *CallInfo) (err error) {
 		panic(fmt.Sprintf("no function for %s", ci.id))
 	}
 
-	// todo:f return err ret or just use panic?
-	ret := f.(func([]interface{}) interface{})(ci.args)
-	return s.ret(ci, &RetInfo{ret: ret})
+	// todo: f return err ret or just use panic, I think handler should know how to return error,
+	// not just panic to let the server to recover it.
+	ret, err := f.(func([]interface{}) (ret interface{}, err error))(ci.args)
+	return s.ret(ci, &RetInfo{ret: ret, err: err})
 
 	// panic("bug")
 }
@@ -228,8 +235,9 @@ func (c *Client) call(ci *CallInfo, block bool) (err error) {
 		// if full, just drop it.
 		select {
 		case c.s.ChanCall <- ci:
+		case <-time.After(time.Millisecond * 50): // this may side effect, because this take time too.
 		default:
-			err = errors.New("chanrpc channel full")
+			err = errors.New("server chanrpc channel full") // how?
 		}
 	}
 	return
@@ -283,12 +291,16 @@ func (c *Client) asynCall(id interface{}, args []interface{}, cb func(interface{
 		cb:      cb,
 	}, false)
 
+	// server buffer is exhausted.
 	if err != nil {
 		c.ChanAsynRet <- &RetInfo{err: err, cb: cb}
 		return
 	}
 }
 
+// No matter what error/issue happen in the server, this should handle/recover it, and return valuable info to caller.
+//
+// If buffer channel of client is exhausted, return error.
 func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 	if len(_args) < 1 {
 		panic("callback function not found")
@@ -304,10 +316,10 @@ func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 	}
 
 	// too many calls
-	if c.pendingAsynCall >= cap(c.ChanAsynRet) {
-		execCb(&RetInfo{err: errors.New("too many calls"), cb: cb.(func(interface{}, error))})
-		return
-	}
+	// if c.pendingAsynCall >= cap(c.ChanAsynRet) {
+	// 	execCb(&RetInfo{err: errors.New("too many calls"), cb: cb.(func(interface{}, error))})
+	// 	return
+	// }
 
 	c.asynCall(id, args, cb.(func(interface{}, error)))
 	c.pendingAsynCall++
