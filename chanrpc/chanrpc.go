@@ -1,79 +1,81 @@
+// Pacakge chanrpc provides base communication between service/module in the same process.
 package chanrpc
 
 import (
 	"errors"
 	"fmt"
-	"github.com/LuisZhou/little-panda-golang/conf"
-	"github.com/LuisZhou/little-panda-golang/log"
+	"github.com/LuisZhou/lpge/conf"
+	"github.com/LuisZhou/lpge/log"
 	"runtime"
 	"time"
 )
 
-// one server per goroutine (goroutine not safe)
-// one client per goroutine (goroutine not safe)
-type Server struct {
-	// id -> function
-	// function fomat:
-	// func(args ... interface{}) interface{}
-	functions    map[interface{}]interface{}
-	ChanCall     chan *CallInfo
-	closeSig     chan bool
-	isUseRoutine bool
-	timeoutRet   time.Duration
-	skipCounter  int
+// RpcCommon is struct contain some field shared by server and client.
+type RpcCommon struct {
+	isStarted   bool
+	timeout     time.Duration
+	skipCounter int
+	closeSig    chan bool
 }
 
-// wrapper of call info for server channel.
-// do not use the cb here, what to callback is decided by the agent, or parent.
+// CallInfo is struct contain informaction of call to server.
 type CallInfo struct {
-	id      interface{}   // id to map function
-	args    []interface{} // args to call function
-	chanRet chan *RetInfo // channel for return value for caller or agent of caller
+	id      interface{}
+	args    []interface{}
+	chanRet chan *RetInfo
 	cb      func(interface{}, error)
 }
 
-// wrapper of return info for caller or agent of caller.
+// RetInfo is struct contain informaction of return of call to server.
 type RetInfo struct {
 	ret interface{}
 	err error
 	cb  func(interface{}, error)
 }
 
-// Client struct.
+// Server is struct defines a chanrpc server.
+type Server struct {
+	functions map[interface{}]interface{}
+	ChanCall  chan *CallInfo
+	RpcCommon
+}
+
+// Client is struct defines chanrpc client.
 type Client struct {
 	s               *Server
 	chanSyncRet     chan *RetInfo
-	ChanAsynRet     chan *RetInfo // If the caller care the return of async call, just use a goroutine to wait the result.
+	ChanAsynRet     chan *RetInfo
 	pendingAsynCall int
 	AllowOverFlood  bool
-	timeoutRet      time.Duration
+	RpcCommon
 }
 
-func NewServer(bufsize int, timeoutRet time.Duration) *Server {
+// SkipCounter get the total number of timeout of write channel.
+func (com *RpcCommon) SkipCounter() int {
+	return com.skipCounter
+}
+
+// NewServer new a server. bufsize define the buffer size of call channel,
+// timeout define most wait time for available of channel of clent when return the result to.
+func NewServer(bufsize int, timeout time.Duration) *Server {
 	s := new(Server)
 	s.functions = make(map[interface{}]interface{})
 	s.ChanCall = make(chan *CallInfo, bufsize)
 	s.closeSig = make(chan bool)
-	s.timeoutRet = timeoutRet
+	s.timeout = timeout
 	return s
 }
 
-// you must call the function before calling Open and Go
-func (s *Server) Register(id interface{}, f interface{}) {
-	switch f.(type) {
-	case func([]interface{}) (ret interface{}, err error):
-	default:
-		panic(fmt.Sprintf("function id %v: definition of function is invalid", id))
-	}
-
+// Register register handler f for id. The handler accept any size of any type parameter, return ret as result,
+// and err if any error happen.
+func (s *Server) Register(id interface{}, f func([]interface{}) (ret interface{}, err error)) {
 	if _, ok := s.functions[id]; ok {
 		panic(fmt.Sprintf("function id %v: already registered", id))
 	}
-
 	s.functions[id] = f
 }
 
-// can panic every where here.
+// ret write result of ci to channel provided by ci.
 func (s *Server) ret(ci *CallInfo, ri *RetInfo) (err error) {
 	if ci.chanRet == nil {
 		return
@@ -89,12 +91,13 @@ func (s *Server) ret(ci *CallInfo, ri *RetInfo) (err error) {
 
 	select {
 	case ci.chanRet <- ri:
-	case <-time.After(time.Millisecond * s.timeoutRet):
+	case <-time.After(time.Millisecond * s.timeout):
 		s.skipCounter++
 	}
 	return
 }
 
+// exec execute call request internally, server should recover from any panic and error.
 func (s *Server) exec(ci *CallInfo) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -107,7 +110,6 @@ func (s *Server) exec(ci *CallInfo) (err error) {
 			}
 
 			s.ret(ci, &RetInfo{err: fmt.Errorf("%v", r)})
-			//s.ret(ci, &RetInfo{err: fmt.Errorf("abc")})
 		}
 	}()
 
@@ -116,19 +118,11 @@ func (s *Server) exec(ci *CallInfo) (err error) {
 		panic(fmt.Sprintf("no function for %s", ci.id))
 	}
 
-	// todo: f return err ret or just use panic, I think handler should know how to return error,
-	// not just panic to let the server to recover it.
 	ret, err := f.(func([]interface{}) (ret interface{}, err error))(ci.args)
 	return s.ret(ci, &RetInfo{ret: ret, err: err})
-
-	// panic("bug")
 }
 
-// Why we need use a parameter for the CallInfo, not just use s.ChanCall.
-// Because in the external world, we should use s.ChanCall in "select", if it is available, then Exec it.
-// For in one Module, we may want there is single goroutine, for "thread-sare"
-
-// I want to deprecate it.
+// Exec execute call request from ci.
 func (s *Server) Exec(ci *CallInfo) {
 	err := s.exec(ci)
 	if err != nil {
@@ -136,13 +130,12 @@ func (s *Server) Exec(ci *CallInfo) {
 	}
 }
 
+// Start start execute coming call request. Its internal goroutine loops forever, execute any coming call request from
+// channel, if no request, just block.
 func (s *Server) Start() {
-	// is this safe?
-	s.isUseRoutine = true
+	s.isStarted = true
 	go func() {
 		for {
-			// add close signal channel.
-			// select use the first or random.
 			select {
 			case <-s.closeSig:
 				s.close()
@@ -154,14 +147,11 @@ func (s *Server) Start() {
 				}
 			}
 		}
-		// log: server exit.
 	}()
 }
 
-// let the server to do something, but no pending job for the ret.
-// goroutine safe
+// Go async call server with id and args, and no any callback is needed of this sync call.
 func (s *Server) Go(id interface{}, args ...interface{}) {
-	// check here is also correct.
 	f := s.functions[id]
 	if f == nil {
 		return
@@ -177,16 +167,15 @@ func (s *Server) Go(id interface{}, args ...interface{}) {
 	}
 }
 
-// goroutine safe
+// Call do a sync call request to server.
 func (s *Server) Call(id interface{}, args ...interface{}) (interface{}, error) {
-	return s.Open(0, time.Second*60).Call(id, args...)
+	return s.Open(0, 0).Call(id, args...)
 }
 
+// close shutdown the call channel and return closed-msg to pending call requested before close.
 func (s *Server) close() {
-	// what's that side effect?
 	close(s.ChanCall)
 
-	// move this to Start() if goroutine in Start() get the close signal.
 	for ci := range s.ChanCall {
 		s.ret(ci, &RetInfo{
 			err: errors.New("chanrpc server closed"),
@@ -194,38 +183,43 @@ func (s *Server) close() {
 	}
 }
 
-// todo: is this ok?
+// Close do shutdown goroutine if has called s.Start() before, and close the call channel and return closed-msg to
+// pending call requested before close.
 func (s *Server) Close() {
-	if s.isUseRoutine {
+	if s.isStarted {
 		s.closeSig <- true
+		s.isStarted = false
 	} else {
 		s.close()
 	}
 }
 
-// goroutine safe
-func (s *Server) Open(l int, timeoutRet time.Duration) *Client {
-	c := NewClient(l, timeoutRet)
+// Open open a server to return a client of this server, provide bufsize define the async buffer size of aysnc callback
+// channel, and timeout define max wait time when send async call request.
+func (s *Server) Open(bufsize int, timeout time.Duration) *Client {
+	c := NewClient(bufsize, timeout)
 	c.Attach(s)
 	return c
 }
 
-func (s *Server) SkipCounter() int {
-	return s.skipCounter
-}
-
-func NewClient(size int, timeoutRet time.Duration) *Client {
+// NewClient create a client, but not specify which server to attach, provide bufsize define the async buffer size of
+// aysnc callback channel, and timeout define max wait time when send async call request.
+func NewClient(size int, timeout time.Duration) *Client {
 	c := new(Client)
 	c.chanSyncRet = make(chan *RetInfo, 1)
 	c.ChanAsynRet = make(chan *RetInfo, size)
-	c.timeoutRet = timeoutRet
+	c.timeout = timeout
+	c.closeSig = make(chan bool)
 	return c
 }
 
+// Attach attach a client to a server.
 func (c *Client) Attach(s *Server) {
 	c.s = s
 }
 
+// call send the request call ci to server channel, if block is true, the call is sync call, or is a async call.
+// If it is a sync call, it allow timeout if server is too busy.
 func (c *Client) call(ci *CallInfo, block bool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -236,19 +230,17 @@ func (c *Client) call(ci *CallInfo, block bool) (err error) {
 	if block {
 		c.s.ChanCall <- ci
 	} else {
-		// if full, just drop it.
 		select {
 		case c.s.ChanCall <- ci:
-		case <-time.After(c.timeoutRet):
-			// this may side effect, because this take time too.
-			// todo, this may be configurable.
-		default:
-			err = errors.New("server chanrpc channel full") // how?
+		case <-time.After(c.timeout):
+			c.skipCounter++
+			err = errors.New("server timeout")
 		}
 	}
 	return
 }
 
+// validate validate the call id can map to handler of the server.
 func (c *Client) validate(id interface{}) (f interface{}, err error) {
 	if c.s == nil {
 		err = errors.New("server not attached")
@@ -264,6 +256,7 @@ func (c *Client) validate(id interface{}) (f interface{}, err error) {
 	return
 }
 
+// Call do a sync call to attatched server.
 func (c *Client) Call(id interface{}, args ...interface{}) (interface{}, error) {
 	_, err := c.validate(id)
 	if err != nil {
@@ -275,6 +268,7 @@ func (c *Client) Call(id interface{}, args ...interface{}) (interface{}, error) 
 		args:    args,
 		chanRet: c.chanSyncRet,
 	}, true)
+
 	if err != nil {
 		return nil, err
 	}
@@ -283,6 +277,7 @@ func (c *Client) Call(id interface{}, args ...interface{}) (interface{}, error) 
 	return ri.ret, ri.err
 }
 
+// asyncCall do a async call to server. It is a private method, only called by client internal.
 func (c *Client) asynCall(id interface{}, args []interface{}, cb func(interface{}, error)) {
 	_, err := c.validate(id)
 	if err != nil {
@@ -297,16 +292,13 @@ func (c *Client) asynCall(id interface{}, args []interface{}, cb func(interface{
 		cb:      cb,
 	}, false)
 
-	// server buffer is exhausted.
 	if err != nil {
 		c.ChanAsynRet <- &RetInfo{err: err, cb: cb}
 		return
 	}
 }
 
-// No matter what error/issue happen in the server, this should handle/recover it, and return valuable info to caller.
-//
-// If buffer channel of client is exhausted, return error.
+// AsyncCall do a async call to server.
 func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 	if len(_args) < 1 {
 		panic("callback function not found")
@@ -321,7 +313,6 @@ func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 		panic("definition of callback function is invalid")
 	}
 
-	// too many calls
 	if c.AllowOverFlood == false && c.pendingAsynCall >= cap(c.ChanAsynRet) {
 		execCb(&RetInfo{err: errors.New("too many calls"), cb: cb.(func(interface{}, error))})
 		return
@@ -331,6 +322,7 @@ func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 	c.pendingAsynCall++
 }
 
+// exeCb do exec the callback of ri. It is a private method, only called by client internal.
 func execCb(ri *RetInfo) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -350,25 +342,39 @@ func execCb(ri *RetInfo) {
 	return
 }
 
+// Cb do exec the callback of ri when the async call is finish handled by server.
 func (c *Client) Cb(ri *RetInfo) {
 	c.pendingAsynCall--
 	execCb(ri)
 }
 
-func (c *Client) Close() {
-	for c.pendingAsynCall > 0 {
-		c.Cb(<-c.ChanAsynRet)
-	}
-}
-
-func (c *Client) Idle() bool {
-	return c.pendingAsynCall == 0
-}
-
-func (c *Client) Long() {
+// Wait wait forever for receiving return from async channel using goroutine internal.
+func (c *Client) Wait() {
+	c.isStarted = true
 	go func() {
 		for {
-			c.Cb(<-c.ChanAsynRet)
+			select {
+			case <-c.closeSig:
+				c.close()
+				return
+			case ret := <-c.ChanAsynRet:
+				c.Cb(ret)
+			}
 		}
 	}()
+}
+
+// close do the clean.
+func (c *Client) close() {
+	//The rule of thumb here is that only writers should close channels.
+}
+
+// Close close goroutine internal if it exist, and do other cleanup job.
+func (c *Client) Close() {
+	if c.isStarted {
+		c.closeSig <- true
+		c.isStarted = false
+	} else {
+		c.close()
+	}
 }

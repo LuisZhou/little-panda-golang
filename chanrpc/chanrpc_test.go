@@ -2,7 +2,7 @@ package chanrpc_test
 
 import (
 	"fmt"
-	"github.com/LuisZhou/little-panda-golang/chanrpc"
+	"github.com/LuisZhou/lpge/chanrpc"
 	"strings"
 	"sync"
 	"testing"
@@ -16,7 +16,6 @@ import (
 // https://github.com/golang/go/wiki/TableDrivenTests
 
 func TestFloodServer(t *testing.T) {
-
 	var wg sync.WaitGroup
 
 	s := chanrpc.NewServer(10, 100)
@@ -30,12 +29,18 @@ func TestFloodServer(t *testing.T) {
 	})
 
 	s.Start()
+	defer func() {
+		s.Close()
+	}()
 
-	c := s.Open(100, time.Millisecond*50)
+	c := s.Open(100, 0)
+	defer func() {
+		c.Close()
+	}()
 
 	counter := 0
 
-	c.Long()
+	c.Wait()
 
 	for i := 0; i < 100; i++ {
 		c.AsynCall("add", 1, 2, func(ret interface{}, err error) {
@@ -47,7 +52,7 @@ func TestFloodServer(t *testing.T) {
 
 			counter++
 
-			if counter == 100 {
+			if counter+c.SkipCounter() == 100 {
 				wg.Done()
 			}
 		})
@@ -58,26 +63,29 @@ func TestFloodServer(t *testing.T) {
 
 func TestFloodClient(t *testing.T) {
 	var wg sync.WaitGroup
-	s := chanrpc.NewServer(1000, 50)
-
 	wg.Add(1)
 
+	s := chanrpc.NewServer(1000, 10)
 	s.Register("print", func(args []interface{}) (ret interface{}, err error) {
 		n1 := args[0].(int)
-		//n2 := args[1].(int)
 		return n1, err
 	})
 	s.Start()
+	defer func() {
+		s.Close()
+	}()
 
-	c := s.Open(1, time.Millisecond*50)
+	c := s.Open(1, time.Millisecond*0)
+	defer func() {
+		c.Close()
+	}()
 	c.AllowOverFlood = true
 
 	counter := 0
-
 	go func() {
 		for {
 			c.Cb(<-c.ChanAsynRet)
-			time.Sleep(time.Millisecond * 50)
+			time.Sleep(time.Millisecond * 20)
 		}
 	}()
 
@@ -94,20 +102,14 @@ func TestFloodClient(t *testing.T) {
 			}
 		})
 	}
+
 	wg.Wait()
-
-	s.Close()
-
-	// Do not call c.Long() before, so do not need to Close().
-	// c.Close()
 }
 
 func TestError(t *testing.T) {
-
 	var wg sync.WaitGroup
 
 	s := chanrpc.NewServer(10, 1000)
-	// register handler
 	s.Register("f0", func(args []interface{}) (ret interface{}, err error) {
 		return nil, fmt.Errorf("%v", "err 1")
 	})
@@ -115,22 +117,24 @@ func TestError(t *testing.T) {
 		panic("err 2")
 		return nil, nil
 	})
-
 	s.Start()
+	defer func() {
+		s.Close()
+	}()
 
 	_, err := s.Call("f0", 123)
 	if strings.Compare(err.(error).Error(), "err 1") != 0 {
 		t.Error("err test fail")
 	}
 
-	//wg.Add(1)
-
 	c := s.Open(10, time.Millisecond*50)
+	defer func() {
+		c.Close()
+	}()
 
 	wg.Add(1)
 
-	// Long wait for async callback.
-	c.Long()
+	c.Wait()
 
 	c.AsynCall("f1", 1, 2, func(ret interface{}, err error) {
 		if strings.Compare(err.(error).Error(), "err 2") != 0 {
@@ -140,28 +144,25 @@ func TestError(t *testing.T) {
 	})
 
 	wg.Wait()
-
-	c.Close()
-	s.Close()
 }
 
 func Example() {
 	var wg sync.WaitGroup
 
 	s := chanrpc.NewServer(10, 1000)
-	// register handler
 	s.Register("f0", func(args []interface{}) (ret interface{}, err error) {
 		fmt.Println("f0", len(args))
 		return len(args), err
 	})
-	// register handler
 	s.Register("add", func(args []interface{}) (ret interface{}, err error) {
 		n1 := args[0].(int)
 		n2 := args[1].(int)
 		return n1 + n2, err
 	})
-
 	s.Start()
+	defer func() {
+		s.Close()
+	}()
 
 	// 1. Example: sync call.
 
@@ -171,11 +172,14 @@ func Example() {
 	// 2. Example: async call
 
 	c := s.Open(10, time.Millisecond*50)
+	defer func() {
+		c.Close()
+	}()
 
 	wg.Add(1)
 
-	// Long wait for async callback.
-	c.Long()
+	// Wait wait for async callback.
+	c.Wait()
 
 	c.AsynCall("add", 1, 2, func(ret interface{}, err error) {
 		if err != nil {
@@ -192,9 +196,6 @@ func Example() {
 	})
 
 	wg.Wait()
-
-	c.Close()
-	s.Close()
 
 	// Output:
 	// f0 1
