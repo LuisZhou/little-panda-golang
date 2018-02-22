@@ -1,8 +1,10 @@
 package network
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 )
@@ -11,7 +13,7 @@ import (
 // | Size | Cmd | Data |
 // ---------------------
 
-const PACKET_HEAD_SIZE int = 4
+const PACKET_HEAD_SIZE uint16 = 4
 
 type Head struct {
 	Size uint16
@@ -19,10 +21,10 @@ type Head struct {
 }
 
 type MsgParser struct {
-	lenMsgLen    int
-	minMsgLen    uint32
-	maxMsgLen    uint32
-	littleEndian bool
+	lenMsgLen int
+	minMsgLen uint16
+	maxMsgLen uint16
+	endian    binary.ByteOrder
 }
 
 func NewMsgParser() *MsgParser {
@@ -30,13 +32,13 @@ func NewMsgParser() *MsgParser {
 	p.lenMsgLen = 2
 	p.minMsgLen = 1
 	p.maxMsgLen = 4096
-	p.littleEndian = false
+	p.endian = binary.BigEndian
 
 	return p
 }
 
 // It's dangerous to call the method on reading or writing
-func (p *MsgParser) SetMsgLen(lenMsgLen int, minMsgLen uint32, maxMsgLen uint32) {
+func (p *MsgParser) SetMsgLen(lenMsgLen int, minMsgLen uint16, maxMsgLen uint16) {
 	// fix to short now.
 	p.lenMsgLen = 2
 
@@ -47,15 +49,15 @@ func (p *MsgParser) SetMsgLen(lenMsgLen int, minMsgLen uint32, maxMsgLen uint32)
 		p.maxMsgLen = maxMsgLen
 	}
 
-	var max uint32
-	switch p.lenMsgLen {
-	case 1:
-		max = math.MaxUint8
-	case 2:
-		max = math.MaxUint16
-	case 4:
-		max = math.MaxUint32
-	}
+	var max uint16 = math.MaxUint16
+	// switch p.lenMsgLen {
+	// case 1:
+	// 	max = math.MaxUint8
+	// case 2:
+	// 	max = math.MaxUint16
+	// case 4:
+	// 	max = math.MaxUint32
+	// }
 	if p.minMsgLen > max {
 		p.minMsgLen = max
 	}
@@ -66,7 +68,11 @@ func (p *MsgParser) SetMsgLen(lenMsgLen int, minMsgLen uint32, maxMsgLen uint32)
 
 // It's dangerous to call the method on reading or writing
 func (p *MsgParser) SetByteOrder(littleEndian bool) {
-	p.littleEndian = littleEndian
+	if littleEndian {
+		p.endian = binary.LittleEndian
+	} else {
+		p.endian = binary.BigEndian
+	}
 }
 
 // ParseHead
@@ -77,14 +83,7 @@ func (p *MsgParser) ParseHead(data []byte) (*Head, error) {
 	var head Head
 	buf_read := bytes.NewBuffer(data[:PACKET_HEAD_SIZE])
 
-	var byteorder ByteOrder
-	if p.littleEndian {
-		byteorder = binary.LittleEndian
-	} else {
-		byteorder = binary.BigEndian
-	}
-
-	err := binary.Read(buf_read, byteorder, &head)
+	err := binary.Read(buf_read, p.endian, &head)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +91,7 @@ func (p *MsgParser) ParseHead(data []byte) (*Head, error) {
 }
 
 // goroutine safe
-func (p *MsgParser) Read(r io.Reader) ([]byte, error) {
+func (p *MsgParser) Read(conn io.Reader) ([]byte, error) {
 	bufMsgLen := make([]byte, PACKET_HEAD_SIZE)
 
 	// read len
@@ -100,9 +99,9 @@ func (p *MsgParser) Read(r io.Reader) ([]byte, error) {
 		return nil, err
 	}
 
-	header, parse_err := ParseHead(bufMsgLen)
+	header, parse_err := p.ParseHead(bufMsgLen)
 	if parse_err != nil {
-		return nil, err
+		return nil, parse_err
 	}
 
 	// check len
@@ -133,26 +132,20 @@ func (p *MsgParser) Pack(cmd uint16, data []byte) (ret []byte, err error) {
 		return nil, errors.New("message too short")
 	}
 
-	msg := make([]byte, PACKET_HEAD_SIZE+head.Size)
+	//msg := make([]byte, PACKET_HEAD_SIZE+head.Size)
+	msg := new(bytes.Buffer)
 
-	var byteorder ByteOrder
-	if p.littleEndian {
-		byteorder = binary.LittleEndian
-	} else {
-		byteorder = binary.BigEndian
-	}
-
-	binary.Write(msg, byteorder, head)
+	binary.Write(msg, p.endian, head)
 
 	// byte order is not care when writing byte.
 	msg.Write(data)
 
-	return msg, nil
+	return msg.Bytes(), nil
 }
 
 // goroutine safe
-func (p *MsgParser) Write(w io.Writer, cmd uint16, data []byte) error {
-	msg, err := Pack(cmd, data)
+func (p *MsgParser) Write(conn io.Writer, cmd uint16, data []byte) error {
+	msg, err := p.Pack(cmd, data)
 	if err != nil {
 		return err
 	}
