@@ -38,7 +38,7 @@ func NewMsgParser() *MsgParser {
 }
 
 // It's dangerous to call the method on reading or writing
-func (p *MsgParser) SetMsgLen(lenMsgLen int, minMsgLen uint16, maxMsgLen uint16) {
+func (p *MsgParser) SetMsgLen(minMsgLen uint16, maxMsgLen uint16) {
 	// fix to short now.
 	p.lenMsgLen = 2
 

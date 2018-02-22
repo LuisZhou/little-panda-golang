@@ -26,4 +26,6 @@ func Example() {
 
 	log.Debug("will not print")
 	log.Release("My name is %v", name)
+
+	// Output: hello
 }
