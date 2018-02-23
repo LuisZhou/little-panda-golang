@@ -91,33 +91,33 @@ func (p *MsgParser) ParseHead(data []byte) (*Head, error) {
 }
 
 // goroutine safe
-func (p *MsgParser) Read(conn io.Reader) ([]byte, error) {
+func (p *MsgParser) Read(conn io.Reader) (uint16, []byte, error) {
 	bufMsgLen := make([]byte, PACKET_HEAD_SIZE)
 
 	// read len
 	if _, err := io.ReadFull(conn, bufMsgLen); err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	header, parse_err := p.ParseHead(bufMsgLen)
 	if parse_err != nil {
-		return nil, parse_err
+		return 0, nil, parse_err
 	}
 
 	// check len
 	if header.Size > p.maxMsgLen {
-		return nil, errors.New("message too long")
+		return 0, nil, errors.New("message too long")
 	} else if header.Size < p.minMsgLen {
-		return nil, errors.New("message too short")
+		return 0, nil, errors.New("message too short")
 	}
 
 	// data
 	msgData := make([]byte, header.Size)
 	if _, err := io.ReadFull(conn, msgData); err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
-	return msgData, nil
+	return header.Cmd, msgData, nil
 }
 
 func (p *MsgParser) Pack(cmd uint16, data []byte) (ret []byte, err error) {

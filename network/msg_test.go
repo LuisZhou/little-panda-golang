@@ -13,8 +13,8 @@ func TestReadWrite(t *testing.T) {
 	parser := network.NewMsgParser()
 	parser.Write(buffer, 1, []byte{1, 2})
 	t.Log(buffer.Bytes())
-	msg, _ := parser.Read(buffer)
-	t.Log(msg)
+	cmd, msg, _ := parser.Read(buffer)
+	t.Log(cmd, msg)
 }
 
 func TestLittleEndian(t *testing.T) {
@@ -23,6 +23,6 @@ func TestLittleEndian(t *testing.T) {
 	parser_l.SetByteOrder(true)
 	parser_l.Write(buffer_l, 1, []byte{1, 2})
 	t.Log(buffer_l.Bytes())
-	msg_l, _ := parser_l.Read(buffer_l)
-	t.Log(msg_l)
+	cmd, msg_l, _ := parser_l.Read(buffer_l)
+	t.Log(cmd, msg_l)
 }

@@ -62,8 +62,6 @@ func (server *TCPServer) init() {
 }
 
 func (server *TCPServer) run() {
-	log.Error("My name is")
-
 	server.wgLn.Add(1)
 	defer server.wgLn.Done()
 
