@@ -1,6 +1,6 @@
 package network
 
 type Processor interface {
-	Unmarshal(data []byte) (interface{}, error)
-	Marshal(msg interface{}) ([][]byte, error)
+	Unmarshal(cmd uint16, data []byte) (interface{}, error)
+	Marshal(cmd uint16, msg interface{}) ([]byte, error)
 }

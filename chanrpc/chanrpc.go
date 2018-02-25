@@ -227,6 +227,9 @@ func (c *Client) call(ci *CallInfo, block bool) (err error) {
 		}
 	}()
 
+	// todo: should I first test if the server support the ci support the request.
+	// should I wrapper getSupportRequest().
+
 	if block {
 		c.s.ChanCall <- ci
 	} else {
