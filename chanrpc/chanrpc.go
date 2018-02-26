@@ -122,7 +122,7 @@ func (s *Server) exec(ci *CallInfo) (err error) {
 	return s.ret(ci, &RetInfo{ret: ret, err: err})
 }
 
-// Exec execute call request from ci.
+// Exec execute call request from ci. Do not go to the buf channel, just call the handle for ci.
 func (s *Server) Exec(ci *CallInfo) {
 	err := s.exec(ci)
 	if err != nil {

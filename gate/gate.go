@@ -11,6 +11,8 @@ import (
 
 type NewAgent func(conn *network.Conn) network.Agent
 
+// Gate start ws server and tcp server base on its configure. And bind EventListener and NewAgent to it.
+// NewAgent will exe when there is a new client here.
 type Gate struct {
 	MaxConnNum      int
 	PendingWriteNum int
@@ -41,14 +43,14 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 		wsServer.HTTPTimeout = gate.HTTPTimeout
 		wsServer.CertFile = gate.CertFile
 		wsServer.KeyFile = gate.KeyFile
-		wsServer.NewAgent = newWsAgent
-		// wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
-		// 	a := &agent{conn: conn, gate: gate}
-		// 	if gate.EventListener != nil {
-		// 		gate.EventListener.Go("NewAgent", a)
-		// 	}
-		// 	return a
-		// }
+		//wsServer.NewAgent = newWsAgent
+		wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
+			a := newWsAgent(conn) //&agent{conn: conn, gate: gate}
+			if gate.EventListener != nil {
+				gate.EventListener.Go("NewAgent", a)
+			}
+			return a
+		}
 	}
 
 	var tcpServer *network.TCPServer
@@ -60,14 +62,14 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 		tcpServer.LenMsgLen = gate.LenMsgLen
 		tcpServer.MaxMsgLen = gate.MaxMsgLen
 		tcpServer.LittleEndian = gate.LittleEndian
-		tcpServer.NewAgent = newTcpAgent
-		// tcpServer.NewAgent = func(conn *network.TCPConn) network.Agent {
-		// 	a := &agent{conn: conn, gate: gate}
-		// 	if gate.EventListener != nil {
-		// 		gate.EventListener.Go("NewAgent", a)
-		// 	}
-		// 	return a
-		// }
+		//tcpServer.NewAgent = newTcpAgent
+		tcpServer.NewAgent = func(conn *network.TCPConn) network.Agent {
+			a := newTcpAgent(conn) //&agent{conn: conn, gate: gate}
+			if gate.EventListener != nil {
+				gate.EventListener.Go("NewAgent", a)
+			}
+			return a
+		}
 	}
 
 	if wsServer != nil {
@@ -87,6 +89,7 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 
 func (gate *Gate) OnDestroy() {}
 
+// todo: the client should also be a module.
 type AgentTemplate struct {
 	conn      network.Conn
 	gate      *Gate
@@ -102,6 +105,9 @@ func (a *AgentTemplate) Run() {
 			break
 		}
 
+		// why I decide not route the msg to module at once, but route to agent.
+		// 1. Route to agent is more natural. Msg is first route agent, and the agent decide what to do next.
+		// 2. One client map to one agent.
 		if a.Processor != nil {
 			msg, err := a.Processor.Unmarshal(cmd, data)
 			if err != nil {
