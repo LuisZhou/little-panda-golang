@@ -10,7 +10,8 @@ LPGE is Acronym of Little Panda Golang Engin. Little Panda is my wife's nickname
 ## todo
 
 + message msg processor, support prtobuf/json (processor should not have any function about route);
-+ add gate;
++ add module(can configure);
++ client should be a module too.
 + network module should support tcp/udp, ipv4/ipv6;
 + database should support mongodb, mysql;
 + module support address(hex/string);
