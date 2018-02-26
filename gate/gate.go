@@ -1,22 +1,22 @@
 package gate
 
 import (
-	"github.com/name5566/leaf/chanrpc"
-	"github.com/name5566/leaf/log"
-	"github.com/name5566/leaf/network"
+	"github.com/LuisZhou/lpge/chanrpc"
+	"github.com/LuisZhou/lpge/log"
+	"github.com/LuisZhou/lpge/network"
 	"net"
 	"reflect"
 	"time"
 )
 
-type NewAgent func(conn *network.Conn) network.Agent
+type NewAgent func(conn network.Conn) network.Agent
 
 // Gate start ws server and tcp server base on its configure. And bind EventListener and NewAgent to it.
 // NewAgent will exe when there is a new client here.
 type Gate struct {
 	MaxConnNum      int
 	PendingWriteNum int
-	MaxMsgLen       uint32
+	MaxMsgLen       uint16
 	//Processor       network.Processor
 	EventListener *chanrpc.Server // do like a event listener
 
@@ -33,25 +33,25 @@ type Gate struct {
 }
 
 func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAgent) {
-	var wsServer *network.WSServer
-	if gate.WSAddr != "" {
-		wsServer = new(network.WSServer)
-		wsServer.Addr = gate.WSAddr
-		wsServer.MaxConnNum = gate.MaxConnNum
-		wsServer.PendingWriteNum = gate.PendingWriteNum
-		wsServer.MaxMsgLen = gate.MaxMsgLen
-		wsServer.HTTPTimeout = gate.HTTPTimeout
-		wsServer.CertFile = gate.CertFile
-		wsServer.KeyFile = gate.KeyFile
-		//wsServer.NewAgent = newWsAgent
-		wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
-			a := newWsAgent(conn) //&agent{conn: conn, gate: gate}
-			if gate.EventListener != nil {
-				gate.EventListener.Go("NewAgent", a)
-			}
-			return a
-		}
-	}
+	// var wsServer *network.WSServer
+	// if gate.WSAddr != "" {
+	// 	wsServer = new(network.WSServer)
+	// 	wsServer.Addr = gate.WSAddr
+	// 	wsServer.MaxConnNum = gate.MaxConnNum
+	// 	wsServer.PendingWriteNum = gate.PendingWriteNum
+	// 	wsServer.MaxMsgLen = gate.MaxMsgLen
+	// 	wsServer.HTTPTimeout = gate.HTTPTimeout
+	// 	wsServer.CertFile = gate.CertFile
+	// 	wsServer.KeyFile = gate.KeyFile
+	// 	//wsServer.NewAgent = newWsAgent
+	// 	wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
+	// 		a := newWsAgent(conn.(*network.Conn)) //&agent{conn: conn, gate: gate}
+	// 		if gate.EventListener != nil {
+	// 			gate.EventListener.Go("NewAgent", a)
+	// 		}
+	// 		return a
+	// 	}
+	// }
 
 	var tcpServer *network.TCPServer
 	if gate.TCPAddr != "" {
@@ -59,7 +59,7 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 		tcpServer.Addr = gate.TCPAddr
 		tcpServer.MaxConnNum = gate.MaxConnNum
 		tcpServer.PendingWriteNum = gate.PendingWriteNum
-		tcpServer.LenMsgLen = gate.LenMsgLen
+		//tcpServer.LenMsgLen = gate.LenMsgLen
 		tcpServer.MaxMsgLen = gate.MaxMsgLen
 		tcpServer.LittleEndian = gate.LittleEndian
 		//tcpServer.NewAgent = newTcpAgent
@@ -72,16 +72,16 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 		}
 	}
 
-	if wsServer != nil {
-		wsServer.Start()
-	}
+	// if wsServer != nil {
+	// 	wsServer.Start()
+	// }
 	if tcpServer != nil {
 		tcpServer.Start()
 	}
 	<-closeSig
-	if wsServer != nil {
-		wsServer.Close()
-	}
+	// if wsServer != nil {
+	// 	wsServer.Close()
+	// }
 	if tcpServer != nil {
 		tcpServer.Close()
 	}
@@ -95,6 +95,11 @@ type AgentTemplate struct {
 	gate      *Gate
 	userData  interface{}
 	Processor network.Processor
+}
+
+func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
+	a.conn = conn
+	a.gate = gate
 }
 
 func (a *AgentTemplate) Run() {
@@ -125,7 +130,7 @@ func (a *AgentTemplate) Run() {
 
 func (a *AgentTemplate) OnClose() {
 	if a.gate.EventListener != nil {
-		err := a.gate.EventListener.Call("CloseAgent", a)
+		_, err := a.gate.EventListener.Call("CloseAgent", a)
 		if err != nil {
 			log.Error("chanrpc error: %v", err)
 		}
@@ -133,8 +138,8 @@ func (a *AgentTemplate) OnClose() {
 }
 
 func (a *AgentTemplate) WriteMsg(cmd uint16, msg interface{}) {
-	if a.gate.Processor != nil {
-		data, err := a.gate.Processor.Marshal(cmd, msg)
+	if a.Processor != nil {
+		data, err := a.Processor.Marshal(cmd, msg)
 		if err != nil {
 			log.Error("marshal message %v error: %v", reflect.TypeOf(msg), err)
 			return
@@ -170,6 +175,7 @@ func (a *AgentTemplate) SetUserData(data interface{}) {
 	a.userData = data
 }
 
-func (a *AgentTemplate) Handler(cmd uint16, data []byte) {
-	log.Debug("Handler got: %d %v", cmd, data)
+func (a *AgentTemplate) Handler(cmd uint16, msg interface{}) (err error) {
+	log.Debug("Handler got: %d %v", cmd, msg)
+	return
 }
