@@ -95,11 +95,13 @@ type AgentTemplate struct {
 	gate      *Gate
 	userData  interface{}
 	Processor network.Processor
+	handlers  map[uint16]func(uint16, interface{})
 }
 
 func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
 	a.conn = conn
 	a.gate = gate
+	a.handlers = make(map[uint16]func(uint16, interface{}))
 }
 
 func (a *AgentTemplate) Run() {
@@ -176,6 +178,16 @@ func (a *AgentTemplate) SetUserData(data interface{}) {
 }
 
 func (a *AgentTemplate) Handler(cmd uint16, msg interface{}) (err error) {
-	log.Debug("Handler got: %d %v", cmd, msg)
+	if f, ok := a.handlers[cmd]; ok {
+		f(cmd, msg)
+	} else {
+		log.Debug("Can't handle: %d %v", cmd, msg)
+	}
+
+	return
+}
+
+func (a *AgentTemplate) Register(cmd uint16, f func(uint16, interface{})) (err error) {
+	a.handlers[cmd] = f
 	return
 }
