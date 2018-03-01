@@ -28,6 +28,7 @@ func ExampleTimer() {
 }
 
 func ExampleCronExpr() {
+	// minute hour dom month dow user cmd
 	cronExpr, err := timer.NewCronExpr("0 * * * *")
 	if err != nil {
 		return
@@ -55,13 +56,16 @@ func ExampleCron() {
 	// cron
 	var c *timer.Cron
 	c = d.CronFunc(cronExpr, func() {
-		fmt.Println("My name is Leaf")
-		c.Stop()
+		fmt.Println("Here is lpge")
+		// c.Stop()
+		_ = c
 	})
 
 	// dispatch
 	(<-d.ChanTimer).Cb()
+	(<-d.ChanTimer).Cb()
 
 	// Output:
-	// My name is Leaf
+	// Here is lpge
+	// Here is lpge
 }
