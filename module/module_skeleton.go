@@ -34,7 +34,7 @@ func (s *Skeleton) Init() {
 	s.g = g.New(s.GoLen)
 	s.dispatcher = timer.NewDispatcher(s.TimerDispatcherLen)
 	s.client = chanrpc.NewClient(s.AsynCallLen, 0) // todo: should configure here.
-	s.server = s.ChanRPCServer
+	s.server = s.ChanRPCServer                     // todo: this is not a good idea.
 
 	if s.server == nil {
 		s.server = chanrpc.NewServer(0, 0) // todo: should configure here.
