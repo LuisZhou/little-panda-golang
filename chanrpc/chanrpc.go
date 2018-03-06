@@ -237,6 +237,7 @@ func (c *Client) call(ci *CallInfo, block bool) (err error) {
 		case c.s.ChanCall <- ci:
 		case <-time.After(c.timeout):
 			c.skipCounter++
+			c.pendingAsynCall--
 			err = errors.New("server timeout")
 		}
 	}
