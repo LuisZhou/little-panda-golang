@@ -158,9 +158,8 @@ func parseCronField(field string, min int, max int) (cronField uint64, err error
 			}
 		}
 
-		// cronField
+		// clear the bit if not
 		if incr == 1 {
-			//fmt.Printf("%d %d %x %x\n", start, end, uint64(^(math.MaxUint64 << uint(end+1))), uint64((math.MaxUint64 << uint(start))))
 			cronField |= ^(math.MaxUint64 << uint(end+1)) & (math.MaxUint64 << uint(start))
 		} else {
 			for i := start; i <= end; i += incr {
