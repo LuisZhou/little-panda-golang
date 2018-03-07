@@ -17,19 +17,37 @@ type module struct {
 	mi       Module
 	closeSig chan bool
 	wg       sync.WaitGroup
+	address  uint
 }
 
-var mods []*module
+var (
+	mods  []*module
+	names map[string]*module = make(map[string]*module)
+	addr  int32              = 0
+	mutex sync.Mutex
+)
 
 func Register(mi Module, name string) {
+	// test the name is empty.
+	// use lock too.
+	// if _, ok := s.functions[id]; ok {
+	// 	panic(fmt.Sprintf("function id %v: already registered", id))
+	// }
+
 	m := new(module)
 	m.mi = mi
 	m.closeSig = make(chan bool, 1)
 
+	// goroutine safe
+	mutex.Lock()
+	m.address = addr
+	addr++
+	names[name] = m
+	mutex.Unlock()
+
 	// todo
-	// using map to map name to module, map address to module.
 	// test if the name conflict with each other.
-	// give a new name if name == ""
+	// give a new name if name == "" [do not need anymore]
 	// search module for cluster.
 	// explore API for cluster call.
 
@@ -61,6 +79,7 @@ func Destroy() {
 		m.wg.Wait()
 		destroy(m)
 	}
+	// todo: release map
 }
 
 func run(m *module) {
