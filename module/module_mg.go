@@ -27,12 +27,19 @@ var (
 	mutex sync.Mutex
 )
 
-func Register(mi Module, name string) {
-	// test the name is empty.
-	// use lock too.
-	// if _, ok := s.functions[id]; ok {
-	// 	panic(fmt.Sprintf("function id %v: already registered", id))
-	// }
+func Register(mi Module, name string) (err error) {
+	namesz := len(name)
+	if namesz > 0 {
+		mutex.Lock()
+		if _, ok := names[name]; ok {
+			err = fmt.Errorf("dulplicate name of module")
+		}
+		mutex.Unlock()
+
+		if err != nil {
+			return
+		}
+	}
 
 	m := new(module)
 	m.mi = mi
@@ -42,12 +49,12 @@ func Register(mi Module, name string) {
 	mutex.Lock()
 	m.address = addr
 	addr++
-	names[name] = m
+	if namesz > 0 {
+		names[name] = m
+	}
 	mutex.Unlock()
 
 	// todo
-	// test if the name conflict with each other.
-	// give a new name if name == "" [do not need anymore]
 	// search module for cluster.
 	// explore API for cluster call.
 
