@@ -53,6 +53,8 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 	// 	}
 	// }
 
+	// todo: need another server which is used to cluster.
+
 	var tcpServer *network.TCPServer
 	if gate.TCPAddr != "" {
 		tcpServer = new(network.TCPServer)
