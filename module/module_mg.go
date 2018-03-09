@@ -86,7 +86,10 @@ func Destroy() {
 		m.wg.Wait()
 		destroy(m)
 	}
-	// todo: release map
+	// release map
+	for k := range names {
+		delete(names, k)
+	}
 }
 
 func run(m *module) {
