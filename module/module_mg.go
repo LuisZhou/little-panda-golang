@@ -1,9 +1,11 @@
 package module
 
 import (
+	"fmt"
 	"github.com/LuisZhou/lpge/conf"
 	"github.com/LuisZhou/lpge/log"
 	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -23,7 +25,7 @@ type module struct {
 var (
 	mods  []*module
 	names map[string]*module = make(map[string]*module)
-	addr  int32              = 0
+	addr  uint               = 0
 	mutex sync.Mutex
 )
 
@@ -63,6 +65,8 @@ func Register(mi Module, name string) (err error) {
 	go run(m)
 
 	mods = append(mods, m)
+
+	return nil
 }
 
 // func Init() {
@@ -113,4 +117,21 @@ func destroy(m *module) {
 	}()
 
 	m.mi.OnDestroy()
+}
+
+// todo: to support remote server.
+func Search(name string) (m *module, err error) {
+	arr := strings.Split(name, ":")
+	len_of_arr := len(arr)
+	if len_of_arr == 2 {
+		return nil, fmt.Errorf("Not support remote name now: ", name)
+	} else if len_of_arr == 1 {
+		if m, ok := names[name]; ok {
+			return m, nil
+		} else {
+			return nil, fmt.Errorf("Not found for name: ", name)
+		}
+	} else {
+		return nil, fmt.Errorf("Unsupport format: ", name)
+	}
 }
