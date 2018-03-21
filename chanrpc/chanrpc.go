@@ -177,9 +177,15 @@ func (s *Server) close() {
 	close(s.ChanCall)
 
 	for ci := range s.ChanCall {
-		s.ret(ci, &RetInfo{
-			err: errors.New("chanrpc server closed"),
-		})
+		// s.ret(ci, &RetInfo{
+		// 	err: errors.New("chanrpc server closed"),
+		// })
+
+		// let the server exes the pending cmd is a better choice.
+		err := s.exec(ci)
+		if err != nil {
+			log.Error("%v", err)
+		}
 	}
 }
 
