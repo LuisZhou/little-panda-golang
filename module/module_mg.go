@@ -65,18 +65,6 @@ func Register(mi Module, name string) (err error) {
 	mods = append(mods, m)
 }
 
-// func Init() {
-// 	for i := 0; i < len(mods); i++ {
-// 		mods[i].mi.OnInit()
-// 	}
-
-// 	for i := 0; i < len(mods); i++ {
-// 		m := mods[i]
-// 		m.wg.Add(1)
-// 		go run(m)
-// 	}
-// }
-
 func Destroy() {
 	for i := len(mods) - 1; i >= 0; i-- {
 		m := mods[i]
@@ -113,4 +101,16 @@ func destroy(m *module) {
 	}()
 
 	m.mi.OnDestroy()
+}
+
+func search(url) (m *module, err error) {
+	arr := strings.Split(url, ":")
+	len_of_arr := len(arr)
+	if len_of_arr == 2 {
+
+	} else if len_of_arr == 1 {
+
+	} else {
+
+	}
 }
