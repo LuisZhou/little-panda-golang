@@ -159,6 +159,7 @@ func (s *Server) Start() {
 func (s *Server) Go(id interface{}, args ...interface{}) {
 	f := s.functions[id]
 	if f == nil {
+		fmt.Println("chanrpc: not handler found for", id)
 		return
 	}
 

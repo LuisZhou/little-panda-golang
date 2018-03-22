@@ -50,10 +50,17 @@ func TestNewGate(t *testing.T) {
 			t.Log("test")
 			a := &NewAgent{}
 			a.Init(conn, gateInstance)
-			a.Register(1, func(cmd uint16, msg interface{}) {
-				t.Log("what?", msg)
+			// a.Register(1, func(cmd uint16, msg interface{}) {
+			// 	t.Log("what?", msg)
+			// 	wg.Done()
+			// })
+
+			a.Skeleton.RegisterChanRPC(uint16(1), func(args []interface{}) (ret interface{}, err error) {
+				t.Log("what?", args)
 				wg.Done()
+				return nil, nil
 			})
+
 			a.Processor = p
 			wg.Done()
 			return a
@@ -81,4 +88,5 @@ func TestNewGate(t *testing.T) {
 	_ = err_for_write
 
 	wg.Wait()
+	//time.Sleep(time.Second * 3)
 }

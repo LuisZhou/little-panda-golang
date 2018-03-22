@@ -3,6 +3,7 @@ package gate
 import (
 	"github.com/LuisZhou/lpge/chanrpc"
 	"github.com/LuisZhou/lpge/log"
+	"github.com/LuisZhou/lpge/module"
 	"github.com/LuisZhou/lpge/network"
 	"net"
 	"reflect"
@@ -97,13 +98,25 @@ type AgentTemplate struct {
 	gate      *Gate
 	userData  interface{}
 	Processor network.Processor
-	handlers  map[uint16]func(uint16, interface{})
+	//handlers  map[uint16]func(uint16, interface{})
+	*module.Skeleton
 }
 
 func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
 	a.conn = conn
 	a.gate = gate
-	a.handlers = make(map[uint16]func(uint16, interface{}))
+	//a.handlers = make(map[uint16]func(uint16, interface{}))
+
+	// todo: all configure it.
+	s := &module.Skeleton{
+		GoLen:              10,
+		TimerDispatcherLen: 10,
+		AsynCallLen:        10,
+		ChanRPCServer:      chanrpc.NewServer(10, 0),
+	}
+	s.Init()
+	go s.Run(make(chan bool)) // todo
+	a.Skeleton = s
 }
 
 func (a *AgentTemplate) Run() {
@@ -123,11 +136,12 @@ func (a *AgentTemplate) Run() {
 				log.Debug("unmarshal message error: %v", err)
 				break
 			}
-			err = a.Handler(cmd, msg)
-			if err != nil {
-				log.Debug("route message error: %v", err)
-				break
-			}
+			// err = a.Handler(cmd, msg)
+			// if err != nil {
+			// 	log.Debug("route message error: %v", err)
+			// 	break
+			// }
+			a.Go(cmd, msg)
 		}
 	}
 }
@@ -179,17 +193,17 @@ func (a *AgentTemplate) SetUserData(data interface{}) {
 	a.userData = data
 }
 
-func (a *AgentTemplate) Handler(cmd uint16, msg interface{}) (err error) {
-	if f, ok := a.handlers[cmd]; ok {
-		f(cmd, msg)
-	} else {
-		log.Debug("Can't handle: %d %v", cmd, msg)
-	}
+// func (a *AgentTemplate) Handler(cmd uint16, msg interface{}) (err error) {
+// 	if f, ok := a.handlers[cmd]; ok {
+// 		f(cmd, msg)
+// 	} else {
+// 		log.Debug("Can't handle: %d %v", cmd, msg)
+// 	}
 
-	return
-}
+// 	return
+// }
 
-func (a *AgentTemplate) Register(cmd uint16, f func(uint16, interface{})) (err error) {
-	a.handlers[cmd] = f
-	return
-}
+// func (a *AgentTemplate) Register(cmd uint16, f func(uint16, interface{})) (err error) {
+// 	a.handlers[cmd] = f
+// 	return
+// }
