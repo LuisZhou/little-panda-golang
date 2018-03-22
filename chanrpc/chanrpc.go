@@ -19,6 +19,9 @@ type RpcCommon struct {
 }
 
 // CallInfo is struct contain informaction of call to server.
+// If it is not a sync call, caller should have self machanism to recv return from 'chanRet',
+// such as use a for in one goroutine. Using what way to wait, decides it is a sync call or async call.
+// 'cb' is only useful for async call.
 type CallInfo struct {
 	id      interface{}
 	args    []interface{}
@@ -27,6 +30,7 @@ type CallInfo struct {
 }
 
 // RetInfo is struct contain informaction of return of call to server.
+// 'cb' is only useful for async call. its value is pass by CallInfo.
 type RetInfo struct {
 	ret interface{}
 	err error
@@ -34,6 +38,7 @@ type RetInfo struct {
 }
 
 // Server is struct defines a chanrpc server.
+// If size of ChanCall is 0, means is a block-channel.
 type Server struct {
 	functions map[interface{}]interface{}
 	ChanCall  chan *CallInfo
@@ -55,8 +60,8 @@ func (com *RpcCommon) SkipCounter() int {
 	return com.skipCounter
 }
 
-// NewServer new a server. bufsize define the buffer size of call channel,
-// timeout define most wait time for available of channel of clent when return the result to.
+// NewServer new a server. 'bufsize' define the buffer size of call channel,
+// timeout define max waiting time for available of channel of clent when return the result to the client.
 func NewServer(bufsize int, timeout time.Duration) *Server {
 	s := new(Server)
 	s.functions = make(map[interface{}]interface{})
@@ -122,7 +127,7 @@ func (s *Server) exec(ci *CallInfo) (err error) {
 	return s.ret(ci, &RetInfo{ret: ret, err: err})
 }
 
-// Exec execute call request from ci. Do not go to the buf channel, just call the handle for ci.
+// Exec execute call request from ci.
 func (s *Server) Exec(ci *CallInfo) {
 	err := s.exec(ci)
 	if err != nil {
@@ -150,7 +155,7 @@ func (s *Server) Start() {
 	}()
 }
 
-// Go async call server with id and args, and no any callback is needed of this sync call.
+// Go async call server with id and args, no callback, no return.
 func (s *Server) Go(id interface{}, args ...interface{}) {
 	f := s.functions[id]
 	if f == nil {
@@ -173,6 +178,7 @@ func (s *Server) Call(id interface{}, args ...interface{}) (interface{}, error) 
 }
 
 // close shutdown the call channel and return closed-msg to pending call requested before close.
+// the close let the server exes the pended request.
 func (s *Server) close() {
 	close(s.ChanCall)
 
@@ -180,8 +186,6 @@ func (s *Server) close() {
 		// s.ret(ci, &RetInfo{
 		// 	err: errors.New("chanrpc server closed"),
 		// })
-
-		// let the server exes the pending cmd is a better choice.
 		err := s.exec(ci)
 		if err != nil {
 			log.Error("%v", err)

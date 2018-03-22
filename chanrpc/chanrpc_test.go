@@ -75,7 +75,7 @@ func TestFloodClient(t *testing.T) {
 		s.Close()
 	}()
 
-	c := s.Open(1, time.Millisecond*0)
+	c := s.Open(1, 0)
 	defer func() {
 		c.Close()
 	}()
