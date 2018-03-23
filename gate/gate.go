@@ -141,7 +141,7 @@ func (a *AgentTemplate) Run() {
 			// 	log.Debug("route message error: %v", err)
 			// 	break
 			// }
-			a.Go(cmd, msg)
+			a.GoRpc(cmd, msg)
 		}
 	}
 }

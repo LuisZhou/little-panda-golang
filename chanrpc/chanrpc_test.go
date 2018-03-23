@@ -43,6 +43,7 @@ func TestFloodServer(t *testing.T) {
 	c.Wait()
 
 	for i := 0; i < 100; i++ {
+		// If we use Call(). It will waiting, not timeout.
 		c.AsynCall("add", 1, 2, func(ret interface{}, err error) {
 			if err != nil {
 				t.Log(err)
@@ -121,6 +122,8 @@ func TestError(t *testing.T) {
 	defer func() {
 		s.Close()
 	}()
+
+	// todo: add test s.Go
 
 	_, err := s.Call("f0", 123)
 	if strings.Compare(err.(error).Error(), "err 1") != 0 {

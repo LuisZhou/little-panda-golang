@@ -13,5 +13,5 @@ type Agent interface {
 	UserData() interface{}
 	SetUserData(data interface{})
 	//Handler(cmd uint16, msg interface{}) error // todo: change handler to Go
-	Go(id interface{}, args ...interface{})
+	GoRpc(id interface{}, args ...interface{})
 }

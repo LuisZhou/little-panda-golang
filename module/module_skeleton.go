@@ -83,13 +83,13 @@ func (s *Skeleton) CronFunc(cronExpr *timer.CronExpr, cb func()) *timer.Cron {
 	return s.dispatcher.CronFunc(cronExpr, cb)
 }
 
-// func (s *Skeleton) Go(f func(), cb func()) {
-// 	if s.GoLen == 0 {
-// 		panic("invalid GoLen")
-// 	}
+func (s *Skeleton) Go(f func(), cb func()) {
+	if s.GoLen == 0 {
+		panic("invalid GoLen")
+	}
 
-// 	s.g.Go(f, cb)
-// }
+	s.g.Go(f, cb)
+}
 
 func (s *Skeleton) NewLinearContext() *g.LinearContext {
 	if s.GoLen == 0 {
@@ -121,6 +121,6 @@ func (s *Skeleton) RegisterCommand(name string, help string, f interface{}) {
 	console.Register(name, help, f, s.commandServer)
 }
 
-func (s *Skeleton) Go(id interface{}, args ...interface{}) {
+func (s *Skeleton) GoRpc(id interface{}, args ...interface{}) {
 	s.ChanRPCServer.Go(id, args...)
 }
