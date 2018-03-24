@@ -19,7 +19,6 @@ type module struct {
 	mi       Module
 	closeSig chan bool
 	wg       sync.WaitGroup
-	address  uint
 }
 
 var (
@@ -49,10 +48,11 @@ func Register(mi Module, name string) (err error) {
 
 	// goroutine safe
 	mutex.Lock()
-	m.address = addr
 	addr++
 	if namesz > 0 {
 		names[name] = m
+	} else {
+		names[strconv.Itoa(addr)] = m
 	}
 	mutex.Unlock()
 
@@ -107,8 +107,8 @@ func destroy(m *module) {
 	m.mi.OnDestroy()
 }
 
-// todo: to support remote server.
 func Search(name string) (m *module, err error) {
+	// todo: to support remote server.
 	arr := strings.Split(name, ":")
 	len_of_arr := len(arr)
 	if len_of_arr == 2 {
@@ -124,5 +124,13 @@ func Search(name string) (m *module, err error) {
 	}
 }
 
-// API: send
+// Send do a async call to module with name 'name'.
+func Send(name string, cmd uint16, data interface{}) error {
+	m, err := Search(name)
+	if err {
+		return err
+	}
+	//m.mi.
+}
+
 // API: call
