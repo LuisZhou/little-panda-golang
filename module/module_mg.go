@@ -1,3 +1,4 @@
+// Pacakge module define interface and implement one skeleton of Module, provider a global wide module manager.
 package module
 
 import (
