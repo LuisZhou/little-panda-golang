@@ -109,6 +109,12 @@ func (s *Skeleton) AsynCall(server *chanrpc.Server, id interface{}, args ...inte
 	s.client.AsynCall(id, args...)
 }
 
+// this is not goroutine safe API.
+func (s *Skeleton) SynCall(server *chanrpc.Server, id interface{}, args ...interface{}) {
+	s.client.Attach(server)
+	s.client.Call(id, args...)
+}
+
 func (s *Skeleton) RegisterChanRPC(id interface{}, f interface{}) {
 	if s.ChanRPCServer == nil {
 		panic("invalid ChanRPCServer")
@@ -123,4 +129,8 @@ func (s *Skeleton) RegisterCommand(name string, help string, f interface{}) {
 
 func (s *Skeleton) GoRpc(id interface{}, args ...interface{}) {
 	s.ChanRPCServer.Go(id, args...)
+}
+
+func (s *Skeleton) GetChanrpcServer() *chanrpc.Server {
+	return s.ChanRPCServer
 }

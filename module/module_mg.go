@@ -2,21 +2,30 @@ package module
 
 import (
 	"fmt"
+	"github.com/LuisZhou/lpge/chanrpc"
 	"github.com/LuisZhou/lpge/conf"
 	"github.com/LuisZhou/lpge/log"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 )
+
+// todo: start a tcp server, to listen cluster.
+// two kind of agent: module agent,
 
 type Module interface {
 	OnInit()
 	OnDestroy()
 	Run(closeSig chan bool)
+	AsynCall(server *chanrpc.Server, id interface{}, args ...interface{})
+	SynCall(server *chanrpc.Server, id interface{}, args ...interface{})
+	RegisterChanRPC(id interface{}, f interface{})
+	GetChanrpcServer() *chanrpc.Server
 }
 
 type module struct {
-	mi       Module
+	Module
 	closeSig chan bool
 	wg       sync.WaitGroup
 }
@@ -43,7 +52,7 @@ func Register(mi Module, name string) (err error) {
 	}
 
 	m := new(module)
-	m.mi = mi
+	m.Module = mi
 	m.closeSig = make(chan bool, 1)
 
 	// goroutine safe
@@ -52,7 +61,7 @@ func Register(mi Module, name string) (err error) {
 	if namesz > 0 {
 		names[name] = m
 	} else {
-		names[strconv.Itoa(addr)] = m
+		names[strconv.Itoa(int(addr))] = m
 	}
 	mutex.Unlock()
 
@@ -60,7 +69,7 @@ func Register(mi Module, name string) (err error) {
 	// search module for cluster.
 	// explore API for cluster call.
 
-	m.mi.OnInit()
+	m.Module.OnInit()
 	m.wg.Add(1)
 	go run(m)
 
@@ -85,7 +94,7 @@ func Destroy() {
 }
 
 func run(m *module) {
-	m.mi.Run(m.closeSig)
+	m.Module.Run(m.closeSig)
 	m.wg.Done()
 }
 
@@ -104,33 +113,52 @@ func destroy(m *module) {
 		}
 	}()
 
-	m.mi.OnDestroy()
+	m.Module.OnDestroy()
 }
 
-func Search(name string) (m *module, err error) {
+func Search(name string) (m *module, is_remote bool, err error) {
 	// todo: to support remote server.
 	arr := strings.Split(name, ":")
 	len_of_arr := len(arr)
 	if len_of_arr == 2 {
-		return nil, fmt.Errorf("Not support remote name now: ", name)
+		return nil, true, fmt.Errorf("Not support remote name now: %s", name)
 	} else if len_of_arr == 1 {
 		if m, ok := names[name]; ok {
-			return m, nil
+			return m, false, nil
 		} else {
-			return nil, fmt.Errorf("Not found for name: ", name)
+			return nil, false, fmt.Errorf("Not found for name: %s", name)
 		}
 	} else {
-		return nil, fmt.Errorf("Unsupport format: ", name)
+		return nil, false, fmt.Errorf("Unsupport format: %s", name)
 	}
 }
 
 // Send do a async call to module with name 'name'.
-func Send(name string, cmd uint16, data interface{}) error {
-	m, err := Search(name)
-	if err {
+func (m *module) Send(name string, cmd uint16, data interface{}) error {
+	m1, is_remote, err := Search(name)
+	if err != nil {
 		return err
 	}
-	//m.mi.
+
+	if !is_remote {
+		m.Module.AsynCall(m1.Module.GetChanrpcServer(), cmd, data, func(interface{}, error) {})
+	} else {
+	}
+
+	return nil
 }
 
-// API: call
+// Call
+func (m *module) Call(name string, cmd uint16, data interface{}) error {
+	m1, is_remote, err := Search(name)
+	if err != nil {
+		return err
+	}
+
+	if !is_remote {
+		m.Module.SynCall(m1.Module.GetChanrpcServer(), cmd, data)
+	} else {
+	}
+
+	return nil
+}

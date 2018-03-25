@@ -3,6 +3,8 @@ package module
 import (
 	"github.com/LuisZhou/lpge/chanrpc"
 	"github.com/LuisZhou/lpge/module"
+	"strconv"
+	"sync"
 	"testing"
 )
 
@@ -18,19 +20,39 @@ func (m *TestModule) OnDestroy() {
 }
 
 func TestModuleMg(t *testing.T) {
-	s := &module.Skeleton{
-		GoLen:              10,
-		TimerDispatcherLen: 10,
-		AsynCallLen:        10,
-		ChanRPCServer:      chanrpc.NewServer(10, 0),
+	for i := 0; i < 2; i++ {
+		s := &module.Skeleton{
+			GoLen:              10,
+			TimerDispatcherLen: 10,
+			AsynCallLen:        10,
+			ChanRPCServer:      chanrpc.NewServer(10, 0),
+		}
+		s.Init()
+
+		m := &TestModule{}
+		m.Skeleton = s
+
+		module.Register(m, "test"+strconv.Itoa(i))
 	}
-	s.Init()
 
-	m := &TestModule{}
-	m.Skeleton = s
+	m1, _, e1 := module.Search("test0")
+	t.Log(m1, e1)
 
-	module.Register(m, "test")
+	var wg sync.WaitGroup
 
-	f, e := module.Search("test")
-	t.Log(f, e)
+	m2, _, e2 := module.Search("test1")
+	t.Log(m2, e2)
+	m2.RegisterChanRPC(uint16(1), func(args []interface{}) (interface{}, error) {
+		t.Log("what?", args)
+		wg.Done()
+		return nil, nil
+	})
+
+	wg.Add(1)
+	e3 := m1.Send("test1", uint16(1), "test")
+	t.Log(e3)
+	wg.Wait()
+
+	wg.Add(1)
+	m1.Call("test1", uint16(1), "test")
 }
