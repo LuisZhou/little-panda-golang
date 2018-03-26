@@ -7,8 +7,6 @@ import (
 	"reflect"
 )
 
-// https://stackoverflow.com/questions/7850140/how-do-you-create-a-new-instance-of-a-struct-from-its-type-at-run-time-in-go
-
 type protobuf struct {
 	msgMap map[uint16]reflect.Type
 }
@@ -22,17 +20,9 @@ func NewProtobufProcessor() network.Processor {
 func (p *protobuf) Register(cmd uint16, msg interface{}) error {
 	msgType := reflect.TypeOf(msg)
 
-	// if msgType == nil || msgType.Kind() != reflect.Ptr {
-	// 	log.Fatal("protobuf message pointer required")
-	// }
-
 	if _, ok := p.msgMap[cmd]; ok {
 		return fmt.Errorf("message %s is already registered", msgType)
 	}
-
-	// if _, ok := msg.(proto.Message); !ok {
-	// 	return fmt.Errorf("message %s can not cast to proto.Message", msgType)
-	// }
 
 	if msgType.Kind() != reflect.Ptr {
 		p.msgMap[cmd] = msgType
