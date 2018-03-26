@@ -12,6 +12,5 @@ type Agent interface {
 	Destroy()
 	UserData() interface{}
 	SetUserData(data interface{})
-	//Handler(cmd uint16, msg interface{}) error // todo: change handler to Go
 	GoRpc(id interface{}, args ...interface{})
 }

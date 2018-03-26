@@ -1,0 +1,10 @@
+<script type="text/javascript">
+var ws = new WebSocket('ws://127.0.0.1:3653')
+
+ws.onopen = function() {
+    // Send Hello message
+    ws.send(JSON.stringify({Hello: {
+        Name: 'leaf'
+    }}))
+}
+</script>

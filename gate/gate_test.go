@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"github.com/LuisZhou/lpge/gate"
 	"github.com/LuisZhou/lpge/network"
-	"github.com/LuisZhou/lpge/network/processor"
+	"github.com/LuisZhou/lpge/network/processor/protobuf"
 	"net"
 	"sync"
 	"testing"
@@ -12,7 +12,7 @@ import (
 )
 
 // todo
-// add
+// add close(), desctory() test.
 
 type NewAgent struct {
 	gate.AgentTemplate
@@ -32,11 +32,11 @@ func TestNewGate(t *testing.T) {
 
 	wg.Add(1)
 
-	person := &processor.Person{}
+	person := &protobuf.Person{}
 	person.Name = "abc"
 
-	p := processor.NewProtobufProcessor()
-	p.Register(1, processor.Person{})
+	p := protobuf.NewProtobufProcessor()
+	p.Register(1, protobuf.Person{})
 
 	go func() {
 		gateInstance.Run(make(chan bool), func(conn network.Conn) network.Agent {
@@ -50,11 +50,6 @@ func TestNewGate(t *testing.T) {
 			t.Log("test")
 			a := &NewAgent{}
 			a.Init(conn, gateInstance)
-			// a.Register(1, func(cmd uint16, msg interface{}) {
-			// 	t.Log("what?", msg)
-			// 	wg.Done()
-			// })
-
 			a.Skeleton.RegisterChanRPC(uint16(1), func(args []interface{}) (ret interface{}, err error) {
 				t.Log("what?", args)
 				wg.Done()

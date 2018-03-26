@@ -8,7 +8,7 @@
 
 // [START declaration]
 syntax = "proto3";
-package processor;
+package protobuf;
 
 // [START messages]
 message Person {

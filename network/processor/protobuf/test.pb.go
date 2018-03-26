@@ -10,7 +10,7 @@ It is generated from these files:
 It has these top-level messages:
 	Person
 */
-package processor
+package protobuf
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"

@@ -1,3 +1,4 @@
+/* Package gate stars TCP and websocket server internal, and create new agent when new connect happen. */
 package gate
 
 import (
@@ -18,8 +19,7 @@ type Gate struct {
 	MaxConnNum      int
 	PendingWriteNum int
 	MaxMsgLen       uint16
-	//Processor       network.Processor
-	EventListener *chanrpc.Server // do like a event listener
+	EventListener   *chanrpc.Server
 
 	// websocket
 	WSAddr      string
@@ -92,30 +92,27 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 
 func (gate *Gate) OnDestroy() {}
 
-// todo: the client should also be a module.
 type AgentTemplate struct {
 	conn      network.Conn
 	gate      *Gate
 	userData  interface{}
 	Processor network.Processor
-	//handlers  map[uint16]func(uint16, interface{})
+	closeChan chan bool
 	*module.Skeleton
 }
 
 func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
 	a.conn = conn
 	a.gate = gate
-	//a.handlers = make(map[uint16]func(uint16, interface{}))
-
-	// todo: all configure it.
+	a.closeChan = make(chan bool, 1)
 	s := &module.Skeleton{
 		GoLen:              10,
 		TimerDispatcherLen: 10,
 		AsynCallLen:        10,
-		ChanRPCServer:      chanrpc.NewServer(10, 0),
+		ChanRPCServer:      chanrpc.NewServer(10, 10),
 	}
 	s.Init()
-	go s.Run(make(chan bool)) // todo
+	go s.Run(a.closeChan)
 	a.Skeleton = s
 }
 
@@ -127,20 +124,12 @@ func (a *AgentTemplate) Run() {
 			break
 		}
 
-		// why I decide not route the msg to module at once, but route to agent.
-		// 1. Route to agent is more natural. Msg is first route agent, and the agent decide what to do next.
-		// 2. One client map to one agent.
 		if a.Processor != nil {
 			msg, err := a.Processor.Unmarshal(cmd, data)
 			if err != nil {
 				log.Debug("unmarshal message error: %v", err)
 				break
 			}
-			// err = a.Handler(cmd, msg)
-			// if err != nil {
-			// 	log.Debug("route message error: %v", err)
-			// 	break
-			// }
 			a.GoRpc(cmd, msg)
 		}
 	}
@@ -179,6 +168,7 @@ func (a *AgentTemplate) RemoteAddr() net.Addr {
 
 func (a *AgentTemplate) Close() {
 	a.conn.Close()
+	a.closeChan <- true
 }
 
 func (a *AgentTemplate) Destroy() {
@@ -192,18 +182,3 @@ func (a *AgentTemplate) UserData() interface{} {
 func (a *AgentTemplate) SetUserData(data interface{}) {
 	a.userData = data
 }
-
-// func (a *AgentTemplate) Handler(cmd uint16, msg interface{}) (err error) {
-// 	if f, ok := a.handlers[cmd]; ok {
-// 		f(cmd, msg)
-// 	} else {
-// 		log.Debug("Can't handle: %d %v", cmd, msg)
-// 	}
-
-// 	return
-// }
-
-// func (a *AgentTemplate) Register(cmd uint16, f func(uint16, interface{})) (err error) {
-// 	a.handlers[cmd] = f
-// 	return
-// }

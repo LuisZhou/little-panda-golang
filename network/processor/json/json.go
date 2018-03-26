@@ -1,23 +1,24 @@
-package processor
+package json
 
 import (
+	"encoding/json"
+	_ "errors"
 	"fmt"
 	"github.com/LuisZhou/lpge/network"
-	"github.com/golang/protobuf/proto"
 	"reflect"
 )
 
-type protobuf struct {
+type JsonProcessor struct {
 	msgMap map[uint16]reflect.Type
 }
 
-func NewProtobufProcessor() network.Processor {
-	p := new(protobuf)
+func NewJsonProcessor() network.Processor {
+	p := new(JsonProcessor)
 	p.msgMap = make(map[uint16]reflect.Type)
 	return p
 }
 
-func (p *protobuf) Register(cmd uint16, msg interface{}) error {
+func (p *JsonProcessor) Register(cmd uint16, msg interface{}) error {
 	msgType := reflect.TypeOf(msg)
 
 	if _, ok := p.msgMap[cmd]; ok {
@@ -33,7 +34,7 @@ func (p *protobuf) Register(cmd uint16, msg interface{}) error {
 	return nil
 }
 
-func (p *protobuf) Unmarshal(cmd uint16, data []byte) (interface{}, error) {
+func (p *JsonProcessor) Unmarshal(cmd uint16, data []byte) (interface{}, error) {
 	if _, ok := p.msgMap[cmd]; !ok {
 		return nil, fmt.Errorf("message %d can not handle", cmd)
 	}
@@ -42,10 +43,10 @@ func (p *protobuf) Unmarshal(cmd uint16, data []byte) (interface{}, error) {
 
 	msg := reflect.New(i).Interface()
 
-	return msg, proto.Unmarshal(data, msg.(proto.Message))
+	return msg, json.Unmarshal(data, msg)
 }
 
-func (p *protobuf) Marshal(cmd uint16, msg interface{}) ([]byte, error) {
-	data, err := proto.Marshal(msg.(proto.Message))
+func (p *JsonProcessor) Marshal(cmd uint16, msg interface{}) ([]byte, error) {
+	data, err := json.Marshal(msg)
 	return data, err
 }
