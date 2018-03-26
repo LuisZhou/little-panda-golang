@@ -27,8 +27,6 @@ func (p *protobuf) Register(cmd uint16, msg interface{}) error {
 	if msgType.Kind() != reflect.Ptr {
 		p.msgMap[cmd] = msgType
 	} else {
-		// Elem returns a type's element type.
-		// It panics if the type's Kind is not Array, Chan, Map, Ptr, or Slice.
 		p.msgMap[cmd] = msgType.Elem()
 	}
 
@@ -42,7 +40,6 @@ func (p *protobuf) Unmarshal(cmd uint16, data []byte) (interface{}, error) {
 
 	i := p.msgMap[cmd]
 
-	// Interface returns v's current value as an interface{}
 	msg := reflect.New(i).Interface()
 
 	return msg, proto.Unmarshal(data, msg.(proto.Message))
