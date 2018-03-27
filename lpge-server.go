@@ -5,6 +5,8 @@ import (
 	"github.com/LuisZhou/lpge/conf"
 	"github.com/LuisZhou/lpge/log"
 	"github.com/LuisZhou/lpge/module"
+	"os"
+	"os/signal"
 )
 
 func Run(mods ...module.Module) {
@@ -18,30 +20,31 @@ func Run(mods ...module.Module) {
 		defer logger.Close()
 	}
 
-	log.Release("Leaf %v starting up", version)
+	log.Release("Leaf %v starting up", 1.0)
 
 	// module
 	for i := 0; i < len(mods); i++ {
-		module.Register(mods[i])
+		module.Register(mods[i], "")
 	}
-	module.Init()
+	//module.Init()
 
 	// cluster
-	cluster.Init()
+	//cluster.Init()
 
 	// console
-	console.Init()
+	//console.Init()
 
 	// close
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)
 	sig := <-c
 	log.Release("Leaf closing down (signal: %v)", sig)
-	console.Destroy()
-	cluster.Destroy()
+	//console.Destroy()
+	//cluster.Destroy()
 	module.Destroy()
 }
 
 func main() {
 	fmt.Println(conf.LenStackBuf)
+	Run()
 }
