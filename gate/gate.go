@@ -31,6 +31,8 @@ type Gate struct {
 	TCPAddr      string
 	LenMsgLen    int
 	LittleEndian bool
+
+	*module.Skeleton
 }
 
 func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAgent) {
@@ -88,6 +90,17 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 	if tcpServer != nil {
 		tcpServer.Close()
 	}
+}
+
+func (gate *Gate) OnInit() {
+	s := &module.Skeleton{
+		GoLen:              10,
+		TimerDispatcherLen: 10,
+		AsynCallLen:        10,
+		ChanRPCServer:      chanrpc.NewServer(10, 0),
+	}
+	s.Init()
+	gate.Skeleton = s
 }
 
 func (gate *Gate) OnDestroy() {}

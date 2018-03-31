@@ -3,13 +3,16 @@ package main
 import (
 	"fmt"
 	"github.com/LuisZhou/lpge/conf"
+	"github.com/LuisZhou/lpge/gate"
 	"github.com/LuisZhou/lpge/log"
 	"github.com/LuisZhou/lpge/module"
 	"os"
 	"os/signal"
+	"time"
 )
 
-func Run(mods ...module.Module) {
+//func Run(mods ...module.Module) {
+func Run(mods map[string]module.Module) {
 	// logger
 	if conf.LogLevel != "" {
 		logger, err := log.New(conf.LogLevel, conf.LogPath, conf.LogFlag)
@@ -23,8 +26,8 @@ func Run(mods ...module.Module) {
 	log.Release("Leaf %v starting up", 1.0)
 
 	// module
-	for i := 0; i < len(mods); i++ {
-		module.Register(mods[i], "")
+	for k, v := range mods {
+		module.Register(v, k)
 	}
 	//module.Init()
 
@@ -46,5 +49,16 @@ func Run(mods ...module.Module) {
 
 func main() {
 	fmt.Println(conf.LenStackBuf)
-	Run()
+	_gate := &gate.Gate{
+		MaxConnNum:      2,
+		PendingWriteNum: 20,
+		MaxMsgLen:       4096,
+		HTTPTimeout:     10 * time.Second,
+		TCPAddr:         "127.0.0.1:3563",
+		LittleEndian:    true,
+	}
+
+	Run(map[string]module.Module{
+		"gate": _gate,
+	})
 }
