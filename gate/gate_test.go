@@ -18,8 +18,42 @@ type NewAgent struct {
 	gate.AgentTemplate
 }
 
+var (
+	wg        sync.WaitGroup
+	processor network.Processor
+	person    *protobuf.Person
+)
+
+func init() {
+	person = &protobuf.Person{}
+	person.Name = "abc"
+
+	processor = protobuf.NewProtobufProcessor()
+	processor.Register(1, protobuf.Person{})
+}
+
+func newWsAgent(conn network.Conn, gate *gate.Gate) network.Agent {
+	a := &NewAgent{}
+	a.Init(conn, gate)
+	a.Processor = processor
+	wg.Done()
+	return a
+}
+
+func newTcpAgent(conn network.Conn, gate *gate.Gate) network.Agent {
+	a := &NewAgent{}
+	a.Init(conn, gate)
+	a.Skeleton.RegisterChanRPC(uint16(1), func(args []interface{}) (ret interface{}, err error) {
+		wg.Done()
+		return nil, nil
+	})
+
+	a.Processor = processor
+	wg.Done()
+	return a
+}
+
 func TestNewGate(t *testing.T) {
-	var wg sync.WaitGroup
 
 	gateInstance := &gate.Gate{
 		MaxConnNum:      2,
@@ -28,38 +62,16 @@ func TestNewGate(t *testing.T) {
 		HTTPTimeout:     10 * time.Second,
 		TCPAddr:         "127.0.0.1:3563",
 		LittleEndian:    true,
+		NewWsAgent:      newWsAgent,
+		NewTcpAgent:     newTcpAgent,
 	}
+
+	gateInstance.OnInit()
 
 	wg.Add(1)
 
-	person := &protobuf.Person{}
-	person.Name = "abc"
-
-	p := protobuf.NewProtobufProcessor()
-	p.Register(1, protobuf.Person{})
-
 	go func() {
-		gateInstance.Run(make(chan bool), func(conn network.Conn) network.Agent {
-			t.Log("test")
-			a := &NewAgent{}
-			a.Init(conn, gateInstance)
-			a.Processor = p
-			wg.Done()
-			return a
-		}, func(conn network.Conn) network.Agent {
-			t.Log("test")
-			a := &NewAgent{}
-			a.Init(conn, gateInstance)
-			a.Skeleton.RegisterChanRPC(uint16(1), func(args []interface{}) (ret interface{}, err error) {
-				t.Log("what?", args)
-				wg.Done()
-				return nil, nil
-			})
-
-			a.Processor = p
-			wg.Done()
-			return a
-		})
+		gateInstance.Run(make(chan bool))
 	}()
 
 	time.Sleep(time.Second)
@@ -75,7 +87,7 @@ func TestNewGate(t *testing.T) {
 	parser_l := network.NewMsgParser()
 	parser_l.SetByteOrder(true)
 
-	buf, err1 := p.Marshal(1, person)
+	buf, err1 := processor.Marshal(1, person)
 	t.Log(buf, err1)
 
 	parser_l.Write(buffer_l, 1, buf)

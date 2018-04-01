@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-type NewAgent func(conn network.Conn) network.Agent
+type NewAgent func(conn network.Conn, gate *Gate) network.Agent
 
 // Gate start ws server and tcp server base on its configure. And bind EventListener and NewAgent to it.
 // NewAgent will exe when there is a new client here.
@@ -19,7 +19,7 @@ type Gate struct {
 	MaxConnNum      int
 	PendingWriteNum int
 	MaxMsgLen       uint16
-	EventListener   *chanrpc.Server
+	//EventListener   *chanrpc.Server
 
 	// websocket
 	WSAddr      string
@@ -33,9 +33,11 @@ type Gate struct {
 	LittleEndian bool
 
 	*module.Skeleton
+	NewWsAgent  NewAgent
+	NewTcpAgent NewAgent
 }
 
-func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAgent) {
+func (gate *Gate) Run(closeSig chan bool) {
 	// var wsServer *network.WSServer
 	// if gate.WSAddr != "" {
 	// 	wsServer = new(network.WSServer)
@@ -69,10 +71,11 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 		tcpServer.LittleEndian = gate.LittleEndian
 		//tcpServer.NewAgent = newTcpAgent
 		tcpServer.NewAgent = func(conn *network.TCPConn) network.Agent {
-			a := newTcpAgent(conn) //&agent{conn: conn, gate: gate}
-			if gate.EventListener != nil {
-				gate.EventListener.Go("NewAgent", a)
-			}
+			a := gate.NewTcpAgent(conn, gate) //&agent{conn: conn, gate: gate}
+			// if gate.EventListener != nil {
+			// 	gate.EventListener.Go("NewAgent", a)
+			// }
+			gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
 			return a
 		}
 	}
@@ -93,6 +96,10 @@ func (gate *Gate) Run(closeSig chan bool, newWsAgent NewAgent, newTcpAgent NewAg
 }
 
 func (gate *Gate) OnInit() {
+	if gate.NewTcpAgent == nil || gate.NewWsAgent == nil {
+		panic("gate miss NewTcpAgent or NewWsAgent")
+	}
+
 	s := &module.Skeleton{
 		GoLen:              10,
 		TimerDispatcherLen: 10,
@@ -104,6 +111,8 @@ func (gate *Gate) OnInit() {
 }
 
 func (gate *Gate) OnDestroy() {}
+
+// define AgentTemplae
 
 type AgentTemplate struct {
 	conn      network.Conn
@@ -149,8 +158,8 @@ func (a *AgentTemplate) Run() {
 }
 
 func (a *AgentTemplate) OnClose() {
-	if a.gate.EventListener != nil {
-		_, err := a.gate.EventListener.Call("CloseAgent", a)
+	if a.gate.Skeleton.ChanRPCServer != nil {
+		_, err := a.gate.Skeleton.ChanRPCServer.Call("CloseAgent", a)
 		if err != nil {
 			log.Error("chanrpc error: %v", err)
 		}
