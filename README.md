@@ -13,4 +13,4 @@ LPGE is Acronym of Little Panda Golang Engin. Little Panda is my wife's nickname
 + database should support mongodb, mysql;
 + cluster.
 + every module should has destory handler.
-+ add websocket: https://github.com/golang/net
++ add websocket: https://github.com/golang/net, also ref: https://github.com/gorilla/websocket
