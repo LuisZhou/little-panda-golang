@@ -6,7 +6,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/name5566/leaf/log"
 	"net"
-	"strconv"
+	_ "strconv"
 	"sync"
 )
 
@@ -96,9 +96,11 @@ func (wsConn *WSConn) RemoteAddr() net.Addr {
 // goroutine not safe
 func (wsConn *WSConn) ReadMsg() (uint16, []byte, error) {
 	_, b, err := wsConn.conn.ReadMessage()
-	s := string(b[0:4])
-	cmd, _ := strconv.ParseUint(s, 16, 16)
-	return uint16(cmd), b[4:], err // todo?
+	// s := string(b[0:4])
+	// cmd, _ := strconv.ParseUint(s, 16, 16)
+	// return uint16(cmd), b[4:], err // todo?
+
+	return 0, b, err
 }
 
 // todo
