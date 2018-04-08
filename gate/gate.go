@@ -42,25 +42,25 @@ type Gate struct {
 }
 
 func (gate *Gate) Run(closeSig chan bool) {
-	// var wsServer *network.WSServer
-	// if gate.WSAddr != "" {
-	// 	wsServer = new(network.WSServer)
-	// 	wsServer.Addr = gate.WSAddr
-	// 	wsServer.MaxConnNum = gate.MaxConnNum
-	// 	wsServer.PendingWriteNum = gate.PendingWriteNum
-	// 	wsServer.MaxMsgLen = gate.MaxMsgLen
-	// 	wsServer.HTTPTimeout = gate.HTTPTimeout
-	// 	wsServer.CertFile = gate.CertFile
-	// 	wsServer.KeyFile = gate.KeyFile
-	// 	//wsServer.NewAgent = newWsAgent
-	// 	wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
-	// 		a := newWsAgent(conn.(*network.Conn)) //&agent{conn: conn, gate: gate}
-	// 		if gate.EventListener != nil {
-	// 			gate.EventListener.Go("NewAgent", a)
-	// 		}
-	// 		return a
-	// 	}
-	// }
+	var wsServer *network.WSServer
+	if gate.WSAddr != "" {
+		wsServer = new(network.WSServer)
+		wsServer.Addr = gate.WSAddr
+		wsServer.MaxConnNum = gate.MaxConnNum
+		wsServer.PendingWriteNum = gate.PendingWriteNum
+		wsServer.MaxMsgLen = uint32(gate.MaxMsgLen) // todo: double check
+		wsServer.HTTPTimeout = gate.HTTPTimeout
+		wsServer.CertFile = gate.CertFile
+		wsServer.KeyFile = gate.KeyFile
+		//wsServer.NewAgent = newWsAgent
+		wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
+			a := gate.NewWsAgent(conn, gate) //&agent{conn: conn, gate: gate}
+			if gate.Skeleton.ChanRPCServer != nil {
+				gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
+			}
+			return a
+		}
+	}
 
 	// todo: need another server which is used to cluster.
 
@@ -83,16 +83,16 @@ func (gate *Gate) Run(closeSig chan bool) {
 		}
 	}
 
-	// if wsServer != nil {
-	// 	wsServer.Start()
-	// }
+	if wsServer != nil {
+		wsServer.Start()
+	}
 	if tcpServer != nil {
 		tcpServer.Start()
 	}
 	<-closeSig
-	// if wsServer != nil {
-	// 	wsServer.Close()
-	// }
+	if wsServer != nil {
+		wsServer.Close()
+	}
 	if tcpServer != nil {
 		tcpServer.Close()
 	}

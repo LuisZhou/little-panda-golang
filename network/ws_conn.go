@@ -1,10 +1,9 @@
 package network
 
 import (
-	_ "errors"
-	_ "fmt"
+	"errors"
+	"github.com/LuisZhou/lpge/log"
 	"github.com/gorilla/websocket"
-	"github.com/name5566/leaf/log"
 	"net"
 	_ "strconv"
 	"sync"
@@ -96,48 +95,29 @@ func (wsConn *WSConn) RemoteAddr() net.Addr {
 // goroutine not safe
 func (wsConn *WSConn) ReadMsg() (uint16, []byte, error) {
 	_, b, err := wsConn.conn.ReadMessage()
-	// s := string(b[0:4])
-	// cmd, _ := strconv.ParseUint(s, 16, 16)
-	// return uint16(cmd), b[4:], err // todo?
+	if err != nil {
+		return 0, b, err
+	}
 
-	return 0, b, err
+	var cmd uint16 = uint16((uint16(b[0]) & 0xff) | (uint16(b[1]) << 8 & 0xff00))
+	return cmd, b[2:], err
 }
-
-// todo
 
 // args must not be modified by the others goroutines
 func (wsConn *WSConn) WriteMsg(cmd uint16, data []byte) error {
 	wsConn.Lock()
 	defer wsConn.Unlock()
 	if wsConn.closeFlag {
-		return nil
+		return errors.New("ws connect has closed")
 	}
 
-	// get len
-	// var msgLen uint32
-	// for i := 0; i < len(args); i++ {
-	// 	msgLen += uint32(len(args[i]))
-	// }
+	var msgLen uint32 = uint32(len(data)) + uint32(2)
+	if msgLen > wsConn.maxMsgLen {
+		return errors.New("message too long")
+	} else if msgLen < 2 {
+		return errors.New("message too short")
+	}
 
-	// // check len
-	// if msgLen > wsConn.maxMsgLen {
-	// 	return errors.New("message too long")
-	// } else if msgLen < 1 {
-	// 	return errors.New("message too short")
-	// }
-
-	wsConn.doWrite(data) // todo return error...
-	return nil
-
-	// // merge the args
-	// msg := make([]byte, msgLen)
-	// l := 0
-	// for i := 0; i < len(args); i++ {
-	// 	copy(msg[l:], args[i])
-	// 	l += len(args[i])
-	// }
-
-	// wsConn.doWrite(msg)
-
+	wsConn.doWrite(append([]byte{byte(cmd & 0xff), byte(cmd >> 8 & 0xff)}, data[:]...))
 	return nil
 }

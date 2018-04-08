@@ -12,24 +12,36 @@ var wg sync.WaitGroup
 
 type TestAgent struct {
 	conn network.Conn
+	name string
 }
 
 func (a *TestAgent) Run() {
 	fmt.Println("run")
 
+	if a.name == "client_agent" {
+		a.conn.WriteMsg(1, []byte{1, 2})
+	}
+
 	for {
-		cmd, data, err := a.conn.ReadMsg()
-		if err != nil {
-			fmt.Println("read message: %v", err) // conn will close.
-			break
+		if a.name == "server_agent" {
+			cmd, data, err := a.conn.ReadMsg()
+			if err != nil {
+				fmt.Println("read message: %v", err) // conn will close.
+				break
+			}
+			fmt.Println("read message: %v", cmd, data)
+			a.conn.WriteMsg(2, []byte{3, 4})
 		}
 
-		fmt.Println("read message: %v", cmd, data)
-
-		// fmt.Println("", cmd, len(data), data, string(data))
-		// wg.Done()
-
-		// a.conn.WriteMsg(2, []byte{1, 2})
+		if a.name == "client_agent" {
+			cmd, data, err := a.conn.ReadMsg()
+			if err != nil {
+				fmt.Println("read message: %v", err) // conn will close.
+				break
+			}
+			fmt.Println("read message: %v", cmd, data)
+			wg.Done()
+		}
 	}
 }
 
@@ -49,10 +61,21 @@ func TestNewTcpServer(t *testing.T) {
 	tcpServer.NewAgent = func(conn *network.WSConn) network.Agent {
 		fmt.Println("new client")
 		a := &TestAgent{conn: conn}
-		//wg.Done()
+		a.name = "server_agent"
 		return a
 	}
 	tcpServer.Start()
+
+	wsClient := &network.WSClient{
+		Addr: "ws://localhost:6001",
+		NewAgent: func(conn *network.WSConn) network.Agent {
+			fmt.Println("new client")
+			a := &TestAgent{conn: conn}
+			a.name = "client_agent"
+			return a
+		},
+	}
+	wsClient.Start()
 
 	wg.Wait()
 }
