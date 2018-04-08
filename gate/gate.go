@@ -52,9 +52,9 @@ func (gate *Gate) Run(closeSig chan bool) {
 		wsServer.HTTPTimeout = gate.HTTPTimeout
 		wsServer.CertFile = gate.CertFile
 		wsServer.KeyFile = gate.KeyFile
-		//wsServer.NewAgent = newWsAgent
+		wsServer.NewAgent = newWsAgent
 		wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
-			a := gate.NewWsAgent(conn, gate) //&agent{conn: conn, gate: gate}
+			a := gate.NewWsAgent(conn, gate)
 			if gate.Skeleton.ChanRPCServer != nil {
 				gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
 			}
@@ -73,9 +73,8 @@ func (gate *Gate) Run(closeSig chan bool) {
 		//tcpServer.LenMsgLen = gate.LenMsgLen
 		tcpServer.MaxMsgLen = gate.MaxMsgLen
 		tcpServer.LittleEndian = gate.LittleEndian
-		//tcpServer.NewAgent = newTcpAgent
 		tcpServer.NewAgent = func(conn *network.TCPConn) network.Agent {
-			a := gate.NewTcpAgent(conn, gate) //&agent{conn: conn, gate: gate}
+			a := gate.NewTcpAgent(conn, gate)
 			if gate.Skeleton.ChanRPCServer != nil {
 				gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
 			}
