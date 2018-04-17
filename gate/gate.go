@@ -52,7 +52,6 @@ func (gate *Gate) Run(closeSig chan bool) {
 		wsServer.HTTPTimeout = gate.HTTPTimeout
 		wsServer.CertFile = gate.CertFile
 		wsServer.KeyFile = gate.KeyFile
-		wsServer.NewAgent = newWsAgent
 		wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
 			a := gate.NewWsAgent(conn, gate)
 			if gate.Skeleton.ChanRPCServer != nil {
