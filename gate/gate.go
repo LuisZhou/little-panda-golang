@@ -3,6 +3,7 @@ package gate
 
 import (
 	"github.com/LuisZhou/lpge/chanrpc"
+	"github.com/LuisZhou/lpge/conf"
 	"github.com/LuisZhou/lpge/log"
 	"github.com/LuisZhou/lpge/module"
 	"github.com/LuisZhou/lpge/network"
@@ -102,10 +103,10 @@ func (gate *Gate) OnInit() {
 	}
 
 	s := &module.Skeleton{
-		GoLen:              10,
-		TimerDispatcherLen: 10,
-		AsynCallLen:        10,
-		ChanRPCServer:      chanrpc.NewServer(10, 0),
+		GoLen:              conf.GateConfig.GoLen,
+		TimerDispatcherLen: conf.GateConfig.TimerDispatcherLen,
+		AsynCallLen:        conf.GateConfig.AsynCallLen,
+		ChanRPCServer:      chanrpc.NewServer(conf.GateConfig.ChanRPCLen, time.Duration(conf.GateConfig.TimeoutAsynRet)),
 	}
 	s.Init()
 	gate.Skeleton = s
@@ -129,10 +130,10 @@ func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
 	a.gate = gate
 	a.closeChan = make(chan bool, 1)
 	s := &module.Skeleton{
-		GoLen:              10,
-		TimerDispatcherLen: 10,
-		AsynCallLen:        10,
-		ChanRPCServer:      chanrpc.NewServer(10, 10),
+		GoLen:              conf.AgentConfig.GoLen,
+		TimerDispatcherLen: conf.AgentConfig.TimerDispatcherLen,
+		AsynCallLen:        conf.AgentConfig.AsynCallLen,
+		ChanRPCServer:      chanrpc.NewServer(conf.AgentConfig.ChanRPCLen, time.Duration(conf.AgentConfig.TimeoutAsynRet)),
 	}
 	s.Init()
 	go s.Run(a.closeChan)
