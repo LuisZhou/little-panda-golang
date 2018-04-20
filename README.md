@@ -16,3 +16,6 @@ LPGE is Acronym of Little Panda Golang Engin. Little Panda is my wife's nickname
 + add websocket: https://github.com/golang/net, also ref: https://github.com/gorilla/websocket
 + make a global db instance 
 + make model https://stackoverflow.com/questions/18926303/iterate-through-the-fields-of-a-struct-in-go
++ https://stackoverflow.com/questions/23723955/how-can-i-pass-a-slice-as-a-variadic-input
+	https://stackoverflow.com/questions/24337145/get-name-of-struct-field-using-reflection
+	

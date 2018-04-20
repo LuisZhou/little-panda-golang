@@ -32,17 +32,19 @@ func Create() {
 	}
 
 	for k, v := range Connections {
-		var err error
-		v.conn, err = sql.Open(v.driver, v.dataSourceName)
-		if err != nil {
-			panic(err.Error())
-		}
+		if v.dataSourceName {
+			var err error
+			v.conn, err = sql.Open(v.driver, v.dataSourceName)
+			if err != nil {
+				panic(err.Error())
+			}
 
-		if err = v.conn.Ping(); err != nil {
-			panic(err.Error())
-		}
+			if err = v.conn.Ping(); err != nil {
+				panic(err.Error())
+			}
 
-		Connections[k] = v
+			Connections[k] = v
+		}
 	}
 }
 
