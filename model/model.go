@@ -2,7 +2,10 @@ package model
 
 import (
 	"fmt"
+	"github.com/LuisZhou/lpge/util"
+	"github.com/jinzhu/inflection"
 	"reflect"
+	"strings"
 )
 
 // model interface
@@ -13,23 +16,42 @@ type Model struct {
 
 // model api
 
-func (m *Model) Save() {
-	fmt.Println("Save")
+type ModelInterface interface {
 }
 
-func (m *Model) GetTableName() string {
+func Save(m interface{}) {
+	var v reflect.Value
 
-	fmt.Println(reflect.TypeOf(m))
+	t := reflect.TypeOf(m)
+	if t.Kind() != reflect.Ptr {
+		v = reflect.ValueOf(m)
+	} else {
+		v = reflect.ValueOf(m).Elem()
+		fmt.Println(v, v.NumField())
+	}
 
+	for i := 0; i < v.NumField(); i++ {
+		value := v.Field(i).Interface()
+		key := v.Type().Field(i).Name
+		fmt.Println(key, ':', value)
+	}
+}
+
+func SetTableName(m *Model, table_name string) {
+	m.__table = table_name
+}
+
+func GetTableName(m interface{}) string {
 	msgType := reflect.TypeOf(m)
 	var name string
 	if msgType.Kind() != reflect.Ptr {
-		name = msgType.Kind().String()
+		name = msgType.String()
 	} else {
 		name = msgType.Elem().String()
 	}
-
-	return name
+	arr := strings.Split(name, ".")
+	name = arr[len(arr)-1]
+	return inflection.Plural(util.CamelCaseToUnderscore(name))
 }
 
 // common api

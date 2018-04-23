@@ -7,10 +7,13 @@ import (
 
 type ModelTest struct {
 	model.Model
+	a string
+	b int
 }
 
 func TestModel(t *testing.T) {
 	m := &ModelTest{}
-	m.Save()
-	t.Log(m.GetTableName())
+	model.Save(m)
+	t.Log(model.GetTableName(m))
+	t.Log(model.GetTableName(ModelTest{}))
 }
