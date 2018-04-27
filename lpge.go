@@ -1,0 +1,5 @@
+package lpge
+
+func lpge() {
+
+}
