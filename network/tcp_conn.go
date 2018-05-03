@@ -107,12 +107,8 @@ func (tcpConn *TCPConn) doWrite(b []byte) {
 
 // Write is the api for writing raw data to the connection. So it implement the io.writer interface.
 func (tcpConn *TCPConn) Write(b []byte) (n int, err error) {
-
-	// I don't think we need a lock, write to a closed socket is just fine, except will get an error.
-	// Use a lock will make serialization.
-
-	// tcpConn.Lock()
-	// defer tcpConn.Unlock()
+	tcpConn.Lock()
+	defer tcpConn.Unlock()
 
 	if tcpConn.closeFlag || b == nil {
 		return
@@ -120,29 +116,32 @@ func (tcpConn *TCPConn) Write(b []byte) (n int, err error) {
 
 	tcpConn.doWrite(b)
 
-	// compatible with io.writer
 	return len(b), nil
 }
 
-// Write is the api for reading raw data from the connection. So it implement the io.reader interface.
+// Read implements the io.Reader interface.
 func (tcpConn *TCPConn) Read(b []byte) (int, error) {
 	return tcpConn.conn.Read(b)
 }
 
+// LocalAddr returns the local network address.
 func (tcpConn *TCPConn) LocalAddr() net.Addr {
 	return tcpConn.conn.LocalAddr()
 }
 
+// RemoteAddr returns the remote network address.
 func (tcpConn *TCPConn) RemoteAddr() net.Addr {
 	return tcpConn.conn.RemoteAddr()
 }
 
-// Write is the api for reading data from the connection, and parse the data, return cmd, data, err.
+// ReadMsg is the api for reading msg from the connection.
 func (tcpConn *TCPConn) ReadMsg() (uint16, []byte, error) {
+	// msgParser read from io.Reader
 	return tcpConn.msgParser.Read(tcpConn)
 }
 
-// Write is the api for write msg to the connection, msg is composed by cmd and data.
+// Write is the api for writing msg to the connection.
 func (tcpConn *TCPConn) WriteMsg(cmd uint16, data []byte) error {
+	// msgParse Write cmd, data to io.Writer
 	return tcpConn.msgParser.Write(tcpConn, cmd, data)
 }
