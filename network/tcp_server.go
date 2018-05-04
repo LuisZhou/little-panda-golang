@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// todo
-// + do not use lock, use channel.
-
 type TCPServer struct {
 	Addr            string
 	MaxConnNum      int
@@ -22,8 +19,8 @@ type TCPServer struct {
 	wgConns         sync.WaitGroup
 
 	// msg parser
-	MinMsgLen    uint16 //uint32
-	MaxMsgLen    uint16 //uint32
+	MinMsgLen    uint16
+	MaxMsgLen    uint16
 	LittleEndian bool
 	msgParser    *MsgParser
 }

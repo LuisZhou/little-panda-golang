@@ -14,10 +14,6 @@ import (
 
 type NewAgent func(conn network.Conn, gate *Gate) network.Agent
 
-// todo:
-// change LittleEndian to true
-// test X.509
-
 // Gate start ws server and tcp server base on its configure. And bind EventListener and NewAgent to it.
 // NewAgent will exe when there is a new client here.
 type Gate struct {
@@ -34,7 +30,6 @@ type Gate struct {
 
 	// tcp
 	TCPAddr      string
-	LenMsgLen    int
 	LittleEndian bool
 
 	*module.Skeleton
@@ -70,7 +65,6 @@ func (gate *Gate) Run(closeSig chan bool) {
 		tcpServer.Addr = gate.TCPAddr
 		tcpServer.MaxConnNum = gate.MaxConnNum
 		tcpServer.PendingWriteNum = gate.PendingWriteNum
-		//tcpServer.LenMsgLen = gate.LenMsgLen
 		tcpServer.MaxMsgLen = gate.MaxMsgLen
 		tcpServer.LittleEndian = gate.LittleEndian
 		tcpServer.NewAgent = func(conn *network.TCPConn) network.Agent {
