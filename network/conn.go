@@ -9,6 +9,5 @@ type Conn interface {
 	WriteMsg(cmd uint16, data []byte) error
 	LocalAddr() net.Addr
 	RemoteAddr() net.Addr
-	Close()
 	Destroy()
 }

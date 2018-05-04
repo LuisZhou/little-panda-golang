@@ -6,9 +6,6 @@ import (
 	"sync"
 )
 
-// ConnSet is a map, mapping conn to struct{}, it is useful for maintain state of all connections.
-type ConnSet map[net.Conn]struct{}
-
 // TCPConn combile a tcp connection with a MsgParser, give the connection with proper capability of read/write msg.
 // It also allocate some buffer channel to allow parallelly writing for others goroutines.
 // The write goroutine of the connection starts when call newTCPConn(), and another goroutine of the connection starts when
@@ -34,12 +31,7 @@ func newTCPConn(conn net.Conn, pendingWriteNum int, msgParser *MsgParser) *TCPCo
 	go func() {
 		for {
 			b, ok := <-tcpConn.writeChan
-
-			if ok == false {
-				break
-			}
-
-			if b == nil {
+			if ok == false || b == nil {
 				break
 			}
 
@@ -48,26 +40,21 @@ func newTCPConn(conn net.Conn, pendingWriteNum int, msgParser *MsgParser) *TCPCo
 				break
 			}
 		}
-
-		// clean up
-		conn.Close()
-		tcpConn.Lock()
-		tcpConn.closeFlag = true
-		tcpConn.Unlock()
+		tcpConn.Destroy()
 	}()
 
 	return tcpConn
 }
 
+// only called internal. The caller should get the lock.
 func (tcpConn *TCPConn) doDestroy() {
-	tcpConn.conn.(*net.TCPConn).SetLinger(0)
-	// tcpConn.conn.Close()
-
 	if !tcpConn.closeFlag {
-		// this will change the tcpConn.closeFlag
-		// this will do the conn.Close()
+		tcpConn.conn.(*net.TCPConn).SetLinger(0)
+		tcpConn.conn.Close()
+
+		// close the chan, let the goroutine to exist.
 		close(tcpConn.writeChan)
-		// tcpConn.closeFlag = true
+		tcpConn.closeFlag = true
 	}
 }
 
@@ -80,20 +67,6 @@ func (tcpConn *TCPConn) Destroy() {
 	tcpConn.doDestroy()
 }
 
-// Close do close the connect and clean up.
-// This function normally when the socket is close by client or server.
-func (tcpConn *TCPConn) Close() {
-	tcpConn.Lock()
-	defer tcpConn.Unlock()
-	if tcpConn.closeFlag {
-		return
-	}
-
-	// let the goroutine to break.
-	tcpConn.doWrite(nil)
-	tcpConn.closeFlag = true
-}
-
 func (tcpConn *TCPConn) doWrite(b []byte) {
 	if len(tcpConn.writeChan) == cap(tcpConn.writeChan) {
 		log.Debug("close conn: channel full")
@@ -104,7 +77,7 @@ func (tcpConn *TCPConn) doWrite(b []byte) {
 	tcpConn.writeChan <- b
 }
 
-// Write is the api for writing raw data to the connection. So it implement the io.writer interface.
+// Write do write data to write channel, write implements the io.Write interface.
 func (tcpConn *TCPConn) Write(b []byte) (n int, err error) {
 	tcpConn.Lock()
 	defer tcpConn.Unlock()

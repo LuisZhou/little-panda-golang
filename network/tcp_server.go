@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// ConnSet is a map, mapping conn to struct{}, it is useful for maintain state of all connections.
+type ConnSet map[*TCPConn]struct{}
+
 type TCPServer struct {
 	Addr            string
 	MaxConnNum      int
@@ -90,26 +93,23 @@ func (server *TCPServer) run() {
 			log.Debug("too many connections")
 			continue
 		}
-		server.conns[conn] = struct{}{}
+
+		tcpConn := newTCPConn(conn, server.PendingWriteNum, server.msgParser)
+		server.conns[tcpConn] = struct{}{}
 		server.mutexConns.Unlock()
 
 		server.wgConns.Add(1)
 
-		// Write routine is start by newTCPConn.
-		tcpConn := newTCPConn(conn, server.PendingWriteNum, server.msgParser)
-
-		// Why let the agent to decide what to do in Run, because, normally agent need to
-		// read msg and do some process, so it need expose api to application.
 		agent := server.NewAgent(tcpConn)
 
 		go func() {
-			// What to run, and when to exist is decided by agent.
+			// must read form conn, so when the conn is close or error, the Run() will exist.
 			agent.Run()
 
 			// cleanup
-			tcpConn.Close()
+			tcpConn.Destroy()
 			server.mutexConns.Lock()
-			delete(server.conns, conn)
+			delete(server.conns, tcpConn)
 			server.mutexConns.Unlock()
 			agent.OnClose()
 
@@ -124,8 +124,7 @@ func (server *TCPServer) Close() {
 
 	server.mutexConns.Lock()
 	for conn := range server.conns {
-		// trigger the agent read an EOF error.
-		conn.Close()
+		conn.Destroy()
 	}
 	server.conns = nil
 	server.mutexConns.Unlock()

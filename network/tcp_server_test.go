@@ -12,7 +12,8 @@ import (
 )
 
 // todo:
-// + add test the destory.
+// + add test the conn destory/close
+// + test serer.Close.
 // + test the goroutine exist when close and destory.
 
 var wg sync.WaitGroup
@@ -78,7 +79,8 @@ func TestNewTcpServer(t *testing.T) {
 	wg.Wait()
 
 	wg.Add(2)
-	conn.Close()
+	//conn.Close()
+	tcpServer.Close()
 	wg.Wait()
 
 	time.Sleep(1 * time.Second)
