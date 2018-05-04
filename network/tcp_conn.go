@@ -41,6 +41,7 @@ func newTCPConn(conn net.Conn, pendingWriteNum int, msgParser *MsgParser) *TCPCo
 			}
 		}
 		tcpConn.Destroy()
+		log.Debug("exist")
 	}()
 
 	return tcpConn

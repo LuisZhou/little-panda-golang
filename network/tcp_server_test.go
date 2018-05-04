@@ -79,8 +79,8 @@ func TestNewTcpServer(t *testing.T) {
 	wg.Wait()
 
 	wg.Add(2)
-	//conn.Close()
-	tcpServer.Close()
+	conn.Close()
+	//tcpServer.Close()
 	wg.Wait()
 
 	time.Sleep(1 * time.Second)
