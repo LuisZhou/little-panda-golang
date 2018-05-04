@@ -95,9 +95,15 @@ func (server *TCPServer) run() {
 
 		server.wgConns.Add(1)
 
+		// Write routine is start by newTCPConn.
 		tcpConn := newTCPConn(conn, server.PendingWriteNum, server.msgParser)
+
+		// Why let the agent to decide what to do in Run, because, normally agent need to
+		// read msg and do some process, so it need expose api to application.
 		agent := server.NewAgent(tcpConn)
+
 		go func() {
+			// What to run, and when to exist is decided by agent.
 			agent.Run()
 
 			// cleanup
@@ -118,6 +124,7 @@ func (server *TCPServer) Close() {
 
 	server.mutexConns.Lock()
 	for conn := range server.conns {
+		// trigger the agent read an EOF error.
 		conn.Close()
 	}
 	server.conns = nil

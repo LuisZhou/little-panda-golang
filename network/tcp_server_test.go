@@ -8,6 +8,7 @@ import (
 	"net"
 	"sync"
 	"testing"
+	"time"
 )
 
 // todo:
@@ -24,7 +25,7 @@ func (a *TestAgent) Run() {
 	for {
 		cmd, data, err := a.conn.ReadMsg()
 		if err != nil {
-			log.Debug("read message: %v", err) // conn will close.
+			log.Debug("read message: %v", err) // read EOF
 			break
 		}
 
@@ -33,6 +34,7 @@ func (a *TestAgent) Run() {
 
 		a.conn.WriteMsg(2, []byte{1, 2})
 	}
+	wg.Done()
 }
 
 func (a *TestAgent) OnClose() {
@@ -59,7 +61,7 @@ func TestNewTcpServer(t *testing.T) {
 	tcpAddr, _ := net.ResolveTCPAddr("tcp4", tcpServer.Addr)
 	conn, _ := net.DialTCP("tcp", nil, tcpAddr)
 
-	wg.Add(2) // one for ead, one for write
+	wg.Add(2) // one for read, one for write
 
 	buffer_l := new(bytes.Buffer)
 	parser_l := network.NewMsgParser()
@@ -75,7 +77,9 @@ func TestNewTcpServer(t *testing.T) {
 
 	wg.Wait()
 
-	wg.Add(1)
+	wg.Add(2)
 	conn.Close()
 	wg.Wait()
+
+	time.Sleep(1 * time.Second)
 }

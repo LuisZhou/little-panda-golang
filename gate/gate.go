@@ -134,6 +134,7 @@ func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
 	a.Skeleton = s
 }
 
+// todo: test EOR
 func (a *AgentTemplate) Run() {
 	for {
 		cmd, data, err := a.conn.ReadMsg()
