@@ -26,8 +26,11 @@ func newWSConn(conn *websocket.Conn, pendingWriteNum int, maxMsgLen uint32) *WSC
 	wsConn.maxMsgLen = maxMsgLen
 
 	go func() {
-		for b := range wsConn.writeChan {
-			if b == nil {
+		//for b, ok := range wsConn.writeChan {
+		for {
+			b, ok := <-wsConn.writeChan
+
+			if ok == false || b == nil {
 				break
 			}
 
