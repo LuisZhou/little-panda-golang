@@ -7,17 +7,19 @@ import (
 	"reflect"
 )
 
-type protobuf struct {
+type Protobuf struct {
 	msgMap map[uint16]reflect.Type
 }
 
+// NewProtobufProcessor create a new protobuf processor.
 func NewProtobufProcessor() network.Processor {
-	p := new(protobuf)
+	p := new(Protobuf)
 	p.msgMap = make(map[uint16]reflect.Type)
 	return p
 }
 
-func (p *protobuf) Register(cmd uint16, msg interface{}) error {
+// Register implements the Register of interface Processor.
+func (p *Protobuf) Register(cmd uint16, msg interface{}) error {
 	msgType := reflect.TypeOf(msg)
 
 	if _, ok := p.msgMap[cmd]; ok {
@@ -33,7 +35,8 @@ func (p *protobuf) Register(cmd uint16, msg interface{}) error {
 	return nil
 }
 
-func (p *protobuf) Unmarshal(cmd uint16, data []byte) (interface{}, error) {
+// Unmarshal implements the Unmarshal of interface Processor.
+func (p *Protobuf) Unmarshal(cmd uint16, data []byte) (interface{}, error) {
 	if _, ok := p.msgMap[cmd]; !ok {
 		return nil, fmt.Errorf("message %d can not handle", cmd)
 	}
@@ -45,7 +48,8 @@ func (p *protobuf) Unmarshal(cmd uint16, data []byte) (interface{}, error) {
 	return msg, proto.Unmarshal(data, msg.(proto.Message))
 }
 
-func (p *protobuf) Marshal(cmd uint16, msg interface{}) ([]byte, error) {
+// Marshal implements the Marshal of interface Processor.
+func (p *Protobuf) Marshal(cmd uint16, msg interface{}) ([]byte, error) {
 	data, err := proto.Marshal(msg.(proto.Message))
 	return data, err
 }

@@ -21,8 +21,8 @@ const RECOMMENDED_MAX_DATA_LEN = 32768
 
 // Head of msg.
 type Head struct {
-	Size uint16
-	Cmd  uint16
+	Size uint16 // size of payload
+	Cmd  uint16 // cmd of msg
 }
 
 // MsgParser is a msg parser.
@@ -73,7 +73,7 @@ func (p *MsgParser) SetByteOrder(littleEndian bool) {
 
 // ParseHead parse message header from binary.
 func (p *MsgParser) ParseHead(data []byte) (*Head, error) {
-	if len(data) != PACKET_HEAD_SIZE {
+	if len(data) != int(PACKET_HEAD_SIZE) {
 		return nil, fmt.Errorf("HEAD ERROR")
 	}
 	var head Head
