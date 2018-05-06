@@ -13,20 +13,26 @@ import (
 // | Size | Cmd | Data |
 // ---------------------
 
+// Size of msg header.
 const PACKET_HEAD_SIZE uint16 = 4
+
+// Recommend max size of msg.
 const RECOMMENDED_MAX_DATA_LEN = 32768
 
+// Head of msg.
 type Head struct {
 	Size uint16
 	Cmd  uint16
 }
 
+// MsgParser is a msg parser.
 type MsgParser struct {
 	minMsgLen uint16
 	maxMsgLen uint16
 	endian    binary.ByteOrder
 }
 
+// NewMsgParser create a new msg parser.
 func NewMsgParser() *MsgParser {
 	p := new(MsgParser)
 	p.minMsgLen = 0
@@ -35,25 +41,28 @@ func NewMsgParser() *MsgParser {
 	return p
 }
 
-// It's dangerous to call the method on reading or writing
+// SetMsgLen set min & max of msg total size.
 func (p *MsgParser) SetMsgLen(minMsgLen uint16, maxMsgLen uint16) {
+	var max uint16 = math.MaxUint16
+
 	if minMsgLen != 0 {
 		p.minMsgLen = minMsgLen
 	}
+
+	if p.minMsgLen > max {
+		p.minMsgLen = max
+	}
+
 	if maxMsgLen != 0 {
 		p.maxMsgLen = maxMsgLen
 	}
 
-	var max uint16 = math.MaxUint16
-	if p.minMsgLen > max {
-		p.minMsgLen = max
-	}
 	if p.maxMsgLen > max {
 		p.maxMsgLen = max
 	}
 }
 
-// It's dangerous to call the method on reading or writing
+// SetByteOrder set the byte order of msg parser, used when read/write data from/to binary.
 func (p *MsgParser) SetByteOrder(littleEndian bool) {
 	if littleEndian {
 		p.endian = binary.LittleEndian
@@ -62,9 +71,9 @@ func (p *MsgParser) SetByteOrder(littleEndian bool) {
 	}
 }
 
-// ParseHead
+// ParseHead parse message header from binary.
 func (p *MsgParser) ParseHead(data []byte) (*Head, error) {
-	if len(data) != 4 {
+	if len(data) != PACKET_HEAD_SIZE {
 		return nil, fmt.Errorf("HEAD ERROR")
 	}
 	var head Head
@@ -77,7 +86,7 @@ func (p *MsgParser) ParseHead(data []byte) (*Head, error) {
 	return &head, nil
 }
 
-// goroutine safe
+// Read read one message(cmd, data) from reader.
 func (p *MsgParser) Read(conn io.Reader) (uint16, []byte, error) {
 	bufMsgLen := make([]byte, PACKET_HEAD_SIZE)
 
@@ -96,7 +105,6 @@ func (p *MsgParser) Read(conn io.Reader) (uint16, []byte, error) {
 		return 0, nil, errors.New("message too short")
 	}
 
-	// data
 	msgData := make([]byte, header.Size)
 	if _, err := io.ReadFull(conn, msgData); err != nil {
 		return 0, nil, err
@@ -105,6 +113,7 @@ func (p *MsgParser) Read(conn io.Reader) (uint16, []byte, error) {
 	return header.Cmd, msgData, nil
 }
 
+// Pack package cmd and data to binary.
 func (p *MsgParser) Pack(cmd uint16, data []byte) (ret []byte, err error) {
 	head := &Head{}
 	head.Cmd = cmd
@@ -122,7 +131,7 @@ func (p *MsgParser) Pack(cmd uint16, data []byte) (ret []byte, err error) {
 	return msg.Bytes(), nil
 }
 
-// goroutine safe
+// Write cmd and data to writer.
 func (p *MsgParser) Write(conn io.Writer, cmd uint16, data []byte) error {
 	msg, err := p.Pack(cmd, data)
 	if err != nil {

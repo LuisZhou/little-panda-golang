@@ -1,12 +1,13 @@
 package network
 
 import (
+	"errors"
 	"github.com/LuisZhou/lpge/log"
 	"net"
 	"sync"
 )
 
-// TCPConn repsent one connect of TCP, and give the ablility of RW (msg) for agent.
+// TCPConn repsent one session of TCP, giving the ablility of RW (msg) for agent.
 type TCPConn struct {
 	sync.Mutex
 	conn      net.Conn
@@ -34,7 +35,7 @@ func newTCPConn(conn net.Conn, pendingWriteNum int, msgParser *MsgParser) *TCPCo
 				break
 			}
 		}
-		tcpConn.Destroy()
+		tcpConn.Close()
 		log.Debug("tcpConn write routine exist")
 	}()
 
@@ -42,7 +43,7 @@ func newTCPConn(conn net.Conn, pendingWriteNum int, msgParser *MsgParser) *TCPCo
 }
 
 // doDestroy do the clean, and only called by internal. The caller should first get the lock.
-func (tcpConn *TCPConn) doDestroy() {
+func (tcpConn *TCPConn) doClose() {
 	if !tcpConn.closeFlag {
 		tcpConn.conn.(*net.TCPConn).SetLinger(0)
 		tcpConn.conn.Close()
@@ -54,10 +55,10 @@ func (tcpConn *TCPConn) doDestroy() {
 }
 
 // Destroy do destroy the connect.
-func (tcpConn *TCPConn) Destroy() {
+func (tcpConn *TCPConn) Close() {
 	tcpConn.Lock()
 	defer tcpConn.Unlock()
-	tcpConn.doDestroy()
+	tcpConn.doClose()
 }
 
 // Write do write data to write channel, write implements the io.Write interface.
@@ -66,13 +67,13 @@ func (tcpConn *TCPConn) Write(b []byte) (n int, err error) {
 	defer tcpConn.Unlock()
 
 	if tcpConn.closeFlag || b == nil {
-		return // todo here
+		return 0, errors.New("conn closed")
 	}
 
 	if len(tcpConn.writeChan) == cap(tcpConn.writeChan) {
 		log.Debug("close conn: channel full")
-		tcpConn.doDestroy()
-		return // todo here
+		tcpConn.doClose()
+		return 0, errors.New("channel full")
 	}
 
 	tcpConn.writeChan <- b

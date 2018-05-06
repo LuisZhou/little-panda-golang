@@ -160,6 +160,8 @@ func (a *AgentTemplate) OnClose() {
 			log.Error("chanrpc error: %v", err)
 		}
 	}
+
+	a.closeChan <- true
 }
 
 func (a *AgentTemplate) WriteMsg(cmd uint16, msg interface{}) {
@@ -186,11 +188,6 @@ func (a *AgentTemplate) RemoteAddr() net.Addr {
 
 func (a *AgentTemplate) Close() {
 	a.conn.Close()
-	a.closeChan <- true
-}
-
-func (a *AgentTemplate) Destroy() {
-	a.conn.Destroy()
 }
 
 func (a *AgentTemplate) UserData() interface{} {

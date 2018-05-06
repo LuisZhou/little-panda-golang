@@ -1,7 +1,7 @@
 package network_test
 
 import (
-	"bytes"
+	_ "bytes"
 	"fmt"
 	"github.com/LuisZhou/lpge/log"
 	"github.com/LuisZhou/lpge/network"
@@ -10,11 +10,6 @@ import (
 	"testing"
 	"time"
 )
-
-// todo:
-// + add test the conn destory/close
-// + test serer.Close.
-// + test the goroutine exist when close and destory.
 
 var wg sync.WaitGroup
 
@@ -33,7 +28,8 @@ func (a *TestAgent) Run() {
 		fmt.Println("", cmd, len(data), data, string(data))
 		wg.Done()
 
-		a.conn.WriteMsg(2, []byte{1, 2})
+		// echo the msg.
+		a.conn.WriteMsg(cmd, data)
 	}
 	wg.Done()
 }
@@ -44,6 +40,7 @@ func (a *TestAgent) OnClose() {
 }
 
 func TestNewTcpServer(t *testing.T) {
+	// start server
 	wg.Add(1)
 
 	tcpServer := new(network.TCPServer)
@@ -59,28 +56,36 @@ func TestNewTcpServer(t *testing.T) {
 	}
 	tcpServer.Start()
 
-	tcpAddr, _ := net.ResolveTCPAddr("tcp4", tcpServer.Addr)
+	// client
+
+	tcpAddr, _ := net.ResolveTCPAddr("tcp", tcpServer.Addr)
 	conn, _ := net.DialTCP("tcp", nil, tcpAddr)
 
-	wg.Add(2) // one for read, one for write
+	// one for read, one for write
+	wg.Add(2)
 
-	buffer_l := new(bytes.Buffer)
-	parser_l := network.NewMsgParser()
-	parser_l.SetByteOrder(true)
-	//parser_l.Write(buffer_l, 1, []byte{1, 2})
-	parser_l.Write(buffer_l, 1, []byte("测试"))
-	_, err := conn.Write(buffer_l.Bytes())
-	_ = err
+	//buffer_l := new(bytes.Buffer)
 
-	cmd, ret, err2 := parser_l.Read(conn)
-	t.Log(cmd, ret, err2)
+	// msg parser.
+	msgParse := network.NewMsgParser()
+	msgParse.SetByteOrder(true)
+
+	// write (blocking oper)
+	// msgParse.Write(buffer_l, 1, []byte("测试"))
+	// _, err := conn.Write(buffer_l.Bytes())
+	// _ = err
+	msgParse.Write(conn, 1, []byte("测试"))
+
+	// read (blocking oper)
+	cmd, ret, err2 := msgParse.Read(conn)
+	t.Log(cmd, ret, string(ret), err2)
 	wg.Done()
 
 	wg.Wait()
 
+	// one for Run() exist, one for OnClose()
 	wg.Add(2)
 	conn.Close()
-	//tcpServer.Close()
 	wg.Wait()
 
 	tcpServer.Close()
