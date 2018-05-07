@@ -10,30 +10,36 @@ import (
 	"time"
 )
 
+// WebsocketConnSet is a map mapping WSConn to struct{}, used to manager all conn.
+type WebsocketConnSet map[*WSConn]struct{}
+
+// WSServer is a ws server.
 type WSServer struct {
-	Addr            string
-	MaxConnNum      int
-	PendingWriteNum int
-	MaxMsgLen       uint32
-	HTTPTimeout     time.Duration
-	CertFile        string
-	KeyFile         string
-	NewAgent        func(*WSConn) Agent
-	ln              net.Listener
-	handler         *WSHandler
+	Addr            string              // ws server address.
+	MaxConnNum      int                 // max connection per server.
+	PendingWriteNum int                 // write channel buffer number, per agent.
+	MaxMsgLen       uint32              // max len of msg of ws.
+	HTTPTimeout     time.Duration       // http timeout.
+	CertFile        string              // cert file of http server.
+	KeyFile         string              // key file of http server.
+	NewAgent        func(*WSConn) Agent // new agent creator, called when clint come in.
+	ln              net.Listener        // net listener.
+	handler         *WSHandler          // ws handler.
 }
 
+// WSHandler is Handler use to handle ws request.
 type WSHandler struct {
-	maxConnNum      int
-	pendingWriteNum int
-	maxMsgLen       uint32
-	newAgent        func(*WSConn) Agent
-	upgrader        websocket.Upgrader
-	conns           WebsocketConnSet
-	mutexConns      sync.Mutex
-	wg              sync.WaitGroup
+	maxConnNum      int                 // max connection per server, same as WSServer.
+	pendingWriteNum int                 // write channel buffer number, per agent, same as WSServer.
+	maxMsgLen       uint32              // max len of msg of ws.
+	newAgent        func(*WSConn) Agent // new agent creator, called when clint come in.
+	upgrader        websocket.Upgrader  // Upgrader used to get conn of ws.
+	conns           WebsocketConnSet    // map of all WSConn of thie server.
+	mutexConns      sync.Mutex          // Mutex protect conns.
+	wg              sync.WaitGroup      // WaitGroup protect exist process of connects
 }
 
+// ServeHTTP is a handle function for one ws request.
 func (handler *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", 405)
@@ -61,17 +67,17 @@ func (handler *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Debug("too many connections")
 		return
 	}
-	handler.conns[conn] = struct{}{}
+	wsConn := newWSConn(conn, handler.pendingWriteNum, handler.maxMsgLen)
+	handler.conns[wsConn] = struct{}{}
 	handler.mutexConns.Unlock()
 
-	wsConn := newWSConn(conn, handler.pendingWriteNum, handler.maxMsgLen)
 	agent := handler.newAgent(wsConn)
 	agent.Run()
 
 	// cleanup
 	wsConn.Close()
 	handler.mutexConns.Lock()
-	delete(handler.conns, conn)
+	delete(handler.conns, wsConn)
 	handler.mutexConns.Unlock()
 	agent.OnClose()
 }
@@ -117,6 +123,8 @@ func (server *WSServer) Start() {
 	}
 
 	server.ln = ln
+
+	// create a handler.
 	server.handler = &WSHandler{
 		maxConnNum:      server.MaxConnNum,
 		pendingWriteNum: server.PendingWriteNum,
@@ -129,9 +137,10 @@ func (server *WSServer) Start() {
 		},
 	}
 
+	// create a http server.
 	httpServer := &http.Server{
 		Addr:           server.Addr,
-		Handler:        server.handler,
+		Handler:        server.handler, // pass the handler to http server.
 		ReadTimeout:    server.HTTPTimeout,
 		WriteTimeout:   server.HTTPTimeout,
 		MaxHeaderBytes: 1024,

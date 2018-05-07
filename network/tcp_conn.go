@@ -42,7 +42,7 @@ func newTCPConn(conn net.Conn, pendingWriteNum int, msgParser *MsgParser) *TCPCo
 	return tcpConn
 }
 
-// doDestroy do the clean, and only called by internal. The caller should first get the lock.
+// doClose do the clean, and only called by internal. The caller should first get the lock.
 func (tcpConn *TCPConn) doClose() {
 	if !tcpConn.closeFlag {
 		tcpConn.conn.(*net.TCPConn).SetLinger(0)
@@ -54,7 +54,7 @@ func (tcpConn *TCPConn) doClose() {
 	}
 }
 
-// Destroy do destroy the connect.
+// Close do destroy the connect.
 func (tcpConn *TCPConn) Close() {
 	tcpConn.Lock()
 	defer tcpConn.Unlock()

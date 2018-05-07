@@ -6,12 +6,13 @@ import (
 	"github.com/LuisZhou/lpge/network"
 	"sync"
 	"testing"
+	_ "time"
 )
 
 var wg sync.WaitGroup
 
 type TestAgent struct {
-	conn network.Conn
+	conn *network.WSConn
 	name string
 }
 
@@ -26,32 +27,34 @@ func (a *TestAgent) Run() {
 		if a.name == "server_agent" {
 			cmd, data, err := a.conn.ReadMsg()
 			if err != nil {
-				fmt.Println("read message: %v", err) // conn will close.
+				fmt.Println("server read message: %v", err) // conn will close.
 				break
 			}
-			fmt.Println("read message: %v", cmd, data)
+			fmt.Println("server read message: %v", cmd, data)
 			a.conn.WriteMsg(2, []byte{3, 4})
 		}
 
 		if a.name == "client_agent" {
 			cmd, data, err := a.conn.ReadMsg()
 			if err != nil {
-				fmt.Println("read message: %v", err) // conn will close.
+				fmt.Println("client read message: %v", err) // conn will close.
 				break
 			}
-			fmt.Println("read message: %v", cmd, data)
+			fmt.Println("client read message: %v", cmd, data)
 			wg.Done()
+
+			a.conn.Close()
 		}
 	}
 }
 
 func (a *TestAgent) OnClose() {
 	log.Debug("agent close")
-	//wg.Done()
+	wg.Done()
 }
 
 func TestNewTcpServer(t *testing.T) {
-	wg.Add(1)
+	wg.Add(3)
 
 	tcpServer := new(network.WSServer)
 	tcpServer.Addr = "0.0.0.0:6001"
@@ -78,4 +81,6 @@ func TestNewTcpServer(t *testing.T) {
 	wsClient.Start()
 
 	wg.Wait()
+
+	//time.Sleep(1 * time.Second)
 }

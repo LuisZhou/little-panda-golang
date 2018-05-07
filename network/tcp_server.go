@@ -7,17 +7,17 @@ import (
 	"time"
 )
 
-// connSet is map of all TCPConn.
-type connSet map[*TCPConn]struct{}
+// ConnSet is map of all TCPConn.
+type ConnSet map[*TCPConn]struct{}
 
 // TCPServer is a tcp server.
 type TCPServer struct {
 	Addr            string               // tcp server address
 	MaxConnNum      int                  // max connection per server.
 	PendingWriteNum int                  // write channel buffer number, per agent.
-	NewAgent        func(*TCPConn) Agent // new agent creator, when clint come in.
+	NewAgent        func(*TCPConn) Agent // new agent creator, called when clint come in.
 	ln              net.Listener         // tcp listener.
-	conns           connSet              // map of all TCPConns of thie server.
+	conns           ConnSet              // map of all TCPConns of thie server.
 	mutexConns      sync.Mutex           // Mutex protect conns.
 	wgLn            sync.WaitGroup       // WaitGroup protects start process to finish of server.
 	wgConns         sync.WaitGroup       // WaitGroup protect exist process of connects
@@ -53,7 +53,7 @@ func (server *TCPServer) init() {
 		log.Fatal("NewAgent must not be nil")
 	}
 
-	server.conns = make(connSet)
+	server.conns = make(ConnSet)
 
 	msgParser := NewMsgParser()
 	msgParser.SetMsgLen(server.MinMsgLen, server.MaxMsgLen)
