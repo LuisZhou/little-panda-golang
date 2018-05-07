@@ -19,8 +19,8 @@ type Module interface {
 	OnInit()
 	OnDestroy()
 	Run(closeSig chan bool)
-	AsynCall(server *chanrpc.Server, id interface{}, args ...interface{})
-	SynCall(server *chanrpc.Server, id interface{}, args ...interface{})
+	AsynCall(server *chanrpc.Server, id interface{}, args ...interface{}) error
+	SynCall(server *chanrpc.Server, id interface{}, args ...interface{}) (interface{}, error)
 	RegisterChanRPC(id interface{}, f interface{})
 	GetChanrpcServer() *chanrpc.Server
 }

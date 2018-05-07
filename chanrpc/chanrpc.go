@@ -47,7 +47,6 @@ type Server struct {
 
 // Client is struct defines chanrpc client.
 type Client struct {
-	s               *Server
 	chanSyncRet     chan *RetInfo
 	ChanAsynRet     chan *RetInfo
 	pendingAsynCall int
@@ -155,27 +154,12 @@ func (s *Server) Start() {
 	}()
 }
 
-// Go async call server with id and args, no callback, no return.
-func (s *Server) Go(id interface{}, args ...interface{}) {
-	f := s.functions[id]
-	if f == nil {
-		fmt.Println("chanrpc: not handler found for", id)
-		return
-	}
-
-	defer func() {
-		recover()
-	}()
-
-	s.ChanCall <- &CallInfo{
-		id:   id,
-		args: args,
-	}
-}
-
 // Call do a sync call request to server.
-func (s *Server) Call(id interface{}, args ...interface{}) (interface{}, error) {
-	return s.Open(0, 0).Call(id, args...)
+func (s *Server) SynCall(id interface{}, args ...interface{}) (interface{}, error) {
+	c := NewClient(0, 0)
+	return c.SynCall(s, id, args...)
+
+	//return s.Open(0, 0).Call(id, args...)
 }
 
 // close shutdown the call channel and return closed-msg to pending call requested before close.
@@ -207,11 +191,11 @@ func (s *Server) Close() {
 
 // Open open a server to return a client of this server, provide bufsize define the async buffer size of aysnc callback
 // channel, and timeout define max wait time when send async call request.
-func (s *Server) Open(bufsize int, timeout time.Duration) *Client {
-	c := NewClient(bufsize, timeout)
-	c.Attach(s)
-	return c
-}
+// func (s *Server) Open(bufsize int, timeout time.Duration) *Client {
+// 	c := NewClient(bufsize, timeout)
+// 	c.Attach(s)
+// 	return c
+// }
 
 // NewClient create a client, but not specify which server to attach, provide bufsize define the async buffer size of
 // aysnc callback channel, and timeout define max wait time when send async call request.
@@ -224,14 +208,9 @@ func NewClient(size int, timeout time.Duration) *Client {
 	return c
 }
 
-// Attach attach a client to a server.
-func (c *Client) Attach(s *Server) {
-	c.s = s
-}
-
 // call send the request call ci to server channel, if block is true, the call is sync call, or is a async call.
 // If it is a sync call, it allow timeout if server is too busy.
-func (c *Client) call(ci *CallInfo, block bool) (err error) {
+func (c *Client) call(s *Server, ci *CallInfo, block bool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = r.(error)
@@ -242,10 +221,10 @@ func (c *Client) call(ci *CallInfo, block bool) (err error) {
 	// should I wrapper getSupportRequest().
 
 	if block {
-		c.s.ChanCall <- ci
+		s.ChanCall <- ci
 	} else {
 		select {
-		case c.s.ChanCall <- ci:
+		case s.ChanCall <- ci:
 		case <-time.After(c.timeout):
 			c.skipCounter++
 			c.pendingAsynCall--
@@ -256,13 +235,8 @@ func (c *Client) call(ci *CallInfo, block bool) (err error) {
 }
 
 // validate validate the call id can map to handler of the server.
-func (c *Client) validate(id interface{}) (f interface{}, err error) {
-	if c.s == nil {
-		err = errors.New("server not attached")
-		return
-	}
-
-	f = c.s.functions[id]
+func (c *Client) validate(s *Server, id interface{}) (f interface{}, err error) {
+	f = s.functions[id]
 	if f == nil {
 		err = fmt.Errorf("function id %v: function not registered", id)
 		return
@@ -272,13 +246,13 @@ func (c *Client) validate(id interface{}) (f interface{}, err error) {
 }
 
 // Call do a sync call to attatched server.
-func (c *Client) Call(id interface{}, args ...interface{}) (interface{}, error) {
-	_, err := c.validate(id)
+func (c *Client) SynCall(s *Server, id interface{}, args ...interface{}) (interface{}, error) {
+	_, err := c.validate(s, id)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.call(&CallInfo{
+	err = c.call(s, &CallInfo{
 		id:      id,
 		args:    args,
 		chanRet: c.chanSyncRet,
@@ -293,14 +267,14 @@ func (c *Client) Call(id interface{}, args ...interface{}) (interface{}, error) 
 }
 
 // asyncCall do a async call to server. It is a private method, only called by client internal.
-func (c *Client) asynCall(id interface{}, args []interface{}, cb func(interface{}, error)) {
-	_, err := c.validate(id)
+func (c *Client) asynCall(s *Server, id interface{}, args []interface{}, cb func(interface{}, error)) error {
+	_, err := c.validate(s, id)
 	if err != nil {
 		c.ChanAsynRet <- &RetInfo{err: err, cb: cb}
-		return
+		return fmt.Errorf("no matching function for asynCall call: %v", id)
 	}
 
-	err = c.call(&CallInfo{
+	err = c.call(s, &CallInfo{
 		id:      id,
 		args:    args,
 		chanRet: c.ChanAsynRet,
@@ -309,12 +283,32 @@ func (c *Client) asynCall(id interface{}, args []interface{}, cb func(interface{
 
 	if err != nil {
 		c.ChanAsynRet <- &RetInfo{err: err, cb: cb}
-		return
+		return err
 	}
+
+	return nil
 }
 
+// // Helper function, no callback.
+// func Go(s *Server, id interface{}, args ...interface{}) {
+// 	f := s.functions[id]
+// 	if f == nil {
+// 		fmt.Println("chanrpc: not handler found for", id)
+// 		return
+// 	}
+
+// 	defer func() {
+// 		recover()
+// 	}()
+
+// 	s.ChanCall <- &CallInfo{
+// 		id:   id,
+// 		args: args,
+// 	}
+// }
+
 // AsyncCall do a async call to server.
-func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
+func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error {
 	if len(_args) < 1 {
 		panic("callback function not found")
 	}
@@ -325,16 +319,25 @@ func (c *Client) AsynCall(id interface{}, _args ...interface{}) {
 	switch cb.(type) {
 	case func(ret interface{}, err error):
 	default:
-		panic("definition of callback function is invalid")
+		//panic("definition of callback function is invalid")
+		args = _args
+		cb = nil
+	}
+
+	// !!double_check!!
+	var _cb func(interface{}, error)
+	if cb != nil {
+		_cb = cb.(func(interface{}, error))
 	}
 
 	if c.AllowOverFlood == false && c.pendingAsynCall >= cap(c.ChanAsynRet) {
-		execCb(&RetInfo{err: errors.New("too many calls"), cb: cb.(func(interface{}, error))})
-		return
+		execCb(&RetInfo{err: errors.New("too many calls"), cb: _cb})
+		return nil
 	}
 
-	c.asynCall(id, args, cb.(func(interface{}, error)))
 	c.pendingAsynCall++
+
+	return c.asynCall(s, id, args, _cb)
 }
 
 // exeCb do exec the callback of ri. It is a private method, only called by client internal.

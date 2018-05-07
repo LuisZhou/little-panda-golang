@@ -28,7 +28,7 @@ func (s *Skeleton) Init() {
 		s.TimerDispatcherLen = 0
 	}
 	if s.AsynCallLen <= 0 {
-		s.AsynCallLen = 0
+		s.AsynCallLen = 1 // todo: should configure it.
 	}
 
 	s.g = g.New(s.GoLen)
@@ -48,8 +48,6 @@ func (s *Skeleton) Run(closeSig chan bool) {
 		case <-closeSig:
 			s.commandServer.Close()
 			s.server.Close()
-			// for !s.g.Idle() || !s.client.Idle() {
-			// }
 			s.g.Close()
 			s.client.Close()
 			return
@@ -99,20 +97,16 @@ func (s *Skeleton) NewLinearContext() *g.LinearContext {
 	return s.g.NewLinearContext()
 }
 
-// this is not goroutine safe API.
-func (s *Skeleton) AsynCall(server *chanrpc.Server, id interface{}, args ...interface{}) {
+func (s *Skeleton) AsynCall(server *chanrpc.Server, id interface{}, args ...interface{}) error {
 	if s.AsynCallLen == 0 {
 		panic("invalid AsynCallLen")
 	}
 
-	s.client.Attach(server)
-	s.client.AsynCall(id, args...)
+	return s.client.AsynCall(server, id, args...)
 }
 
-// this is not goroutine safe API.
-func (s *Skeleton) SynCall(server *chanrpc.Server, id interface{}, args ...interface{}) {
-	s.client.Attach(server)
-	s.client.Call(id, args...)
+func (s *Skeleton) SynCall(server *chanrpc.Server, id interface{}, args ...interface{}) (interface{}, error) {
+	return s.client.SynCall(server, id, args...)
 }
 
 func (s *Skeleton) RegisterChanRPC(id interface{}, f interface{}) {
@@ -128,7 +122,8 @@ func (s *Skeleton) RegisterCommand(name string, help string, f interface{}) {
 }
 
 func (s *Skeleton) GoRpc(id interface{}, args ...interface{}) {
-	s.ChanRPCServer.Go(id, args...)
+	//s.ChanRPCServer.Go(id, args...)
+	s.AsynCall(s.server, id, args...)
 }
 
 func (s *Skeleton) GetChanrpcServer() *chanrpc.Server {

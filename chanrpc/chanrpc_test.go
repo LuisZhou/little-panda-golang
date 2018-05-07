@@ -33,7 +33,7 @@ func TestFloodServer(t *testing.T) {
 		s.Close()
 	}()
 
-	c := s.Open(100, 0)
+	c := chanrpc.NewClient(100, 0) //s.Open(100, 0)
 	defer func() {
 		c.Close()
 	}()
@@ -44,7 +44,7 @@ func TestFloodServer(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		// If we use Call(). It will waiting, not timeout.
-		c.AsynCall("add", 1, 2, func(ret interface{}, err error) {
+		c.AsynCall(s, "add", 1, 2, func(ret interface{}, err error) {
 			if err != nil {
 				t.Log(err)
 			} else {
@@ -76,7 +76,7 @@ func TestFloodClient(t *testing.T) {
 		s.Close()
 	}()
 
-	c := s.Open(1, 0)
+	c := chanrpc.NewClient(1, 0) //s.Open(1, 0)
 	defer func() {
 		c.Close()
 	}()
@@ -91,7 +91,7 @@ func TestFloodClient(t *testing.T) {
 	}()
 
 	for i := 0; i < 100; i++ {
-		c.AsynCall("print", i, func(ret interface{}, err error) {
+		c.AsynCall(s, "print", i, func(ret interface{}, err error) {
 			if err != nil {
 				t.Log(err)
 			} else {
@@ -130,7 +130,7 @@ func TestError(t *testing.T) {
 		t.Error("err test fail")
 	}
 
-	c := s.Open(10, time.Millisecond*50)
+	c := chanrpc.NewClient(10, time.Millisecond*50) //s.Open(10, time.Millisecond*50)
 	defer func() {
 		c.Close()
 	}()
@@ -139,7 +139,7 @@ func TestError(t *testing.T) {
 
 	c.Wait()
 
-	c.AsynCall("f1", 1, 2, func(ret interface{}, err error) {
+	c.AsynCall(s, "f1", 1, 2, func(ret interface{}, err error) {
 		if strings.Compare(err.(error).Error(), "err 2") != 0 {
 			t.Error("err test fail")
 		}
@@ -174,7 +174,7 @@ func Example() {
 
 	// 2. Example: async call
 
-	c := s.Open(10, time.Millisecond*50)
+	c := chanrpc.NewClient(10, time.Millisecond*50) //s.Open(10, time.Millisecond*50)
 	defer func() {
 		c.Close()
 	}()
@@ -184,7 +184,7 @@ func Example() {
 	// Wait wait for async callback.
 	c.Wait()
 
-	c.AsynCall("add", 1, 2, func(ret interface{}, err error) {
+	c.AsynCall(s, "add", 1, 2, func(ret interface{}, err error) {
 		if err != nil {
 			fmt.Println(err)
 		} else {
@@ -194,7 +194,7 @@ func Example() {
 	})
 
 	// 3. Example: async call, but do not wait for the callback.
-	c.AsynCall("add", 1, 2, func(ret interface{}, err error) {
+	c.AsynCall(s, "add", 1, 2, func(ret interface{}, err error) {
 		// leave empty
 	})
 

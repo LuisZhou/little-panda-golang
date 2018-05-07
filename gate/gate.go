@@ -51,7 +51,8 @@ func (gate *Gate) Run(closeSig chan bool) {
 		wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
 			a := gate.NewWsAgent(conn, gate)
 			if gate.Skeleton.ChanRPCServer != nil {
-				gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
+				//gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
+				gate.Skeleton.GoRpc("NewAgent", a)
 			}
 			return a
 		}
@@ -70,7 +71,8 @@ func (gate *Gate) Run(closeSig chan bool) {
 		tcpServer.NewAgent = func(conn *network.TCPConn) network.Agent {
 			a := gate.NewTcpAgent(conn, gate)
 			if gate.Skeleton.ChanRPCServer != nil {
-				gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
+				//gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
+				gate.Skeleton.GoRpc("NewAgent", a)
 			}
 			return a
 		}
@@ -155,7 +157,7 @@ func (a *AgentTemplate) Run() {
 
 func (a *AgentTemplate) OnClose() {
 	if a.gate.Skeleton.ChanRPCServer != nil {
-		_, err := a.gate.Skeleton.ChanRPCServer.Call("CloseAgent", a)
+		_, err := a.gate.Skeleton.ChanRPCServer.SynCall("CloseAgent", a)
 		if err != nil {
 			log.Error("chanrpc error: %v", err)
 		}
