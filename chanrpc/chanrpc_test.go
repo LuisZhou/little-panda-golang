@@ -3,6 +3,7 @@ package chanrpc_test
 import (
 	"fmt"
 	"github.com/LuisZhou/lpge/chanrpc"
+	"github.com/LuisZhou/lpge/log"
 	"strings"
 	"sync"
 	"testing"
@@ -14,6 +15,40 @@ import (
 
 // further reading
 // https://github.com/golang/go/wiki/TableDrivenTests
+
+// Wait wait forever for receiving return from async channel using goroutine internal.
+func Wait(c *chanrpc.Client, closeSig chan bool) {
+	go func() {
+		for {
+			select {
+			case <-closeSig:
+				c.Close()
+				return
+			case ret := <-c.ChanAsynRet:
+				c.Cb(ret)
+			}
+		}
+	}()
+}
+
+// Start start execute coming call request.
+func Start(s *chanrpc.Server, closeSig chan bool) {
+	go func() {
+		for {
+			select {
+			case <-closeSig:
+				s.Close()
+				return
+			case ci := <-s.ChanCall:
+				log.Debug("%v", ci)
+				err := s.Exec(ci)
+				if err != nil {
+					log.Error("%v", err)
+				}
+			}
+		}
+	}()
+}
 
 func TestFloodServer(t *testing.T) {
 	var wg sync.WaitGroup
@@ -28,23 +63,27 @@ func TestFloodServer(t *testing.T) {
 		return n1 + n2, err
 	})
 
-	s.Start()
+	closesig := make(chan bool)
+
+	Start(s, closesig)
 	defer func() {
-		s.Close()
+		//s.Close()
+		closesig <- true
 	}()
 
 	c := chanrpc.NewClient(100, 0) //s.Open(100, 0)
 	defer func() {
-		c.Close()
+		closesig <- true
 	}()
 
 	counter := 0
 
-	c.Wait()
+	Wait(c, closesig)
 
 	for i := 0; i < 100; i++ {
 		// If we use Call(). It will waiting, not timeout.
 		c.AsynCall(s, "add", 1, 2, func(ret interface{}, err error) {
+
 			if err != nil {
 				t.Log(err)
 			} else {
@@ -53,7 +92,7 @@ func TestFloodServer(t *testing.T) {
 
 			counter++
 
-			if counter+c.SkipCounter() == 100 {
+			if counter+c.SkipCounter == 100 {
 				wg.Done()
 			}
 		})
@@ -63,6 +102,8 @@ func TestFloodServer(t *testing.T) {
 }
 
 func TestFloodClient(t *testing.T) {
+	closesig := make(chan bool)
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 
@@ -71,9 +112,9 @@ func TestFloodClient(t *testing.T) {
 		n1 := args[0].(int)
 		return n1, err
 	})
-	s.Start()
+	Start(s, closesig)
 	defer func() {
-		s.Close()
+		closesig <- true
 	}()
 
 	c := chanrpc.NewClient(1, 0) //s.Open(1, 0)
@@ -98,7 +139,7 @@ func TestFloodClient(t *testing.T) {
 				t.Log(ret)
 			}
 			counter++
-			if counter+s.SkipCounter() == 100 {
+			if counter+s.SkipCounter == 100 {
 				wg.Done()
 			}
 		})
@@ -108,6 +149,8 @@ func TestFloodClient(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
+	closesig := make(chan bool)
+
 	var wg sync.WaitGroup
 
 	s := chanrpc.NewServer(10, 1000)
@@ -118,26 +161,26 @@ func TestError(t *testing.T) {
 		panic("err 2")
 		return nil, nil
 	})
-	s.Start()
+	Start(s, closesig)
 	defer func() {
-		s.Close()
+		closesig <- true
 	}()
 
 	// todo: add test s.Go
 
-	_, err := s.Call("f0", 123)
+	_, err := chanrpc.SynCall(s, "f0", 123)
 	if strings.Compare(err.(error).Error(), "err 1") != 0 {
 		t.Error("err test fail")
 	}
 
 	c := chanrpc.NewClient(10, time.Millisecond*50) //s.Open(10, time.Millisecond*50)
 	defer func() {
-		c.Close()
+		closesig <- true
 	}()
 
 	wg.Add(1)
 
-	c.Wait()
+	Wait(c, closesig)
 
 	c.AsynCall(s, "f1", 1, 2, func(ret interface{}, err error) {
 		if strings.Compare(err.(error).Error(), "err 2") != 0 {
@@ -150,6 +193,8 @@ func TestError(t *testing.T) {
 }
 
 func Example() {
+	closesig := make(chan bool)
+
 	var wg sync.WaitGroup
 
 	s := chanrpc.NewServer(10, 1000)
@@ -162,27 +207,27 @@ func Example() {
 		n2 := args[1].(int)
 		return n1 + n2, err
 	})
-	s.Start()
-	defer func() {
-		s.Close()
-	}()
+	Start(s, closesig)
+	// defer func() {
+	// 	s.Close()
+	// }()
 
 	// 1. Example: sync call.
 
-	l, _ := s.Call("f0", 123)
+	l, _ := chanrpc.SynCall(s, "f0", 123)
 	fmt.Println(l)
 
 	// 2. Example: async call
 
 	c := chanrpc.NewClient(10, time.Millisecond*50) //s.Open(10, time.Millisecond*50)
-	defer func() {
-		c.Close()
-	}()
+	// defer func() {
+	// 	c.Close()
+	// }()
 
 	wg.Add(1)
 
 	// Wait wait for async callback.
-	c.Wait()
+	Wait(c, closesig)
 
 	c.AsynCall(s, "add", 1, 2, func(ret interface{}, err error) {
 		if err != nil {

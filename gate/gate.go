@@ -157,7 +157,7 @@ func (a *AgentTemplate) Run() {
 
 func (a *AgentTemplate) OnClose() {
 	if a.gate.Skeleton.ChanRPCServer != nil {
-		_, err := a.gate.Skeleton.ChanRPCServer.SynCall("CloseAgent", a)
+		_, err := chanrpc.SynCall(a.gate.Skeleton.ChanRPCServer, "CloseAgent", a)
 		if err != nil {
 			log.Error("chanrpc error: %v", err)
 		}

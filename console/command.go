@@ -46,7 +46,7 @@ func (c *ExternalCommand) run(_args []string) string {
 		args[i] = v
 	}
 
-	ret, err := c.server.SynCall(c._name, args...)
+	ret, err := chanrpc.SynCall(c.server, c._name, args...)
 	if err != nil {
 		return err.Error()
 	}
