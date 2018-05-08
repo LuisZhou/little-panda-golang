@@ -112,8 +112,7 @@ func (s *Server) Exec(ci *CallInfo) (err error) {
 	return s.ret(ci, &RetInfo{ret: ret, err: err})
 }
 
-// Close do shutdown goroutine if has called s.Start() before, and close the call channel and return closed-msg to
-// pending call requested before close.
+// Close do the shutdown of the server.
 func (s *Server) Close() {
 	close(s.ChanCall)
 	for ci := range s.ChanCall {
@@ -146,9 +145,6 @@ func (c *Client) call(s *Server, ci *CallInfo, block bool) (err error) {
 			err = r.(error)
 		}
 	}()
-
-	// todo: should I first test if the server support the ci support the request.
-	// should I wrapper getSupportRequest().
 
 	if block {
 		s.ChanCall <- ci
@@ -197,7 +193,6 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 	switch cb.(type) {
 	case func(ret interface{}, err error):
 	default:
-		//panic("definition of callback function is invalid")
 		args = _args
 		cb = nil
 	}
@@ -214,8 +209,6 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 		c.Cb(&RetInfo{err: errors.New("too many calls"), cb: _cb})
 		return nil
 	}
-
-	//return c.asynCall(s, id, args, _cb)
 
 	_, err := validate(s, id)
 	if err != nil {
@@ -238,16 +231,10 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 	return nil
 }
 
-// exeCb do exec the callback of ri. It is a private method, only called by client internal.
-// func execCb(ri *RetInfo) {
-
-// }
-
 // Cb do exec the callback of ri when the async call is finish handled by server.
 func (c *Client) Cb(ri *RetInfo) {
 	c.pendingAsynCall--
 
-	//execCb(ri)
 	defer func() {
 		if r := recover(); r != nil {
 			if conf.LenStackBuf > 0 {
@@ -280,13 +267,12 @@ func SynCall(s *Server, id interface{}, args ...interface{}) (interface{}, error
 	return c.SynCall(s, id, args...)
 }
 
-// validate validate the call id can map to handler of the server.
+// validate if the server can handle the id.
 func validate(s *Server, id interface{}) (f interface{}, err error) {
 	f = s.functions[id]
 	if f == nil {
 		err = fmt.Errorf("function id %v: function not registered", id)
 		return
 	}
-
 	return
 }
