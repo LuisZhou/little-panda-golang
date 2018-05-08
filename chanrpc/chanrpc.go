@@ -43,12 +43,13 @@ type Client struct {
 	chanSyncRet     chan *RetInfo
 	ChanAsynRet     chan *RetInfo
 	pendingAsynCall int
-	AllowOverFlood  bool
 	RpcCommon
 }
 
-// NewServer new a server. bufsize define the buffer size of call channel, timeout define max waiting time for writing
-// to channel of clent, prevent from blocking.
+// NewServer new a server.
+//
+// bufsize define buffer size of called channel
+// timeout define timeout for writing to channel of clent, prevent from infinite blocking.
 func NewServer(bufsize int, timeout time.Duration) *Server {
 	s := new(Server)
 	s.functions = make(map[interface{}]interface{})
@@ -65,7 +66,7 @@ func (s *Server) Register(id interface{}, f func([]interface{}) (ret interface{}
 	s.functions[id] = f
 }
 
-// ret write result of ci to channel provided by ci.
+// ret write result to channel provided by ci.
 func (s *Server) ret(ci *CallInfo, ri *RetInfo) (err error) {
 	if ci.chanRet == nil {
 		return
@@ -125,20 +126,19 @@ func (s *Server) Close() {
 
 // start client
 
-// NewClient create a client, but not specify which server to attach, provide bufsize define the async buffer size of
-// aysnc callback channel, and timeout define max wait time when send async call request.
+// NewClient create a rpc client.
+//
+// bufsize define the async buffer size of aysnc callback channel
+// timeout define max wait time when send async call request.
 func NewClient(size int, timeout time.Duration) *Client {
 	c := new(Client)
 	c.chanSyncRet = make(chan *RetInfo, 1)
-	if size > 0 {
-		c.ChanAsynRet = make(chan *RetInfo, size)
-	}
+	c.ChanAsynRet = make(chan *RetInfo, size)
 	c.timeout = timeout
 	return c
 }
 
-// call send the request call ci to server channel, if block is true, the call is sync call, or is a async call.
-// If it is a sync call, it allow timeout if server is too busy.
+// call send the request call ci to server channel. If block is true, this will wait forever if channel of server is busy.
 func (c *Client) call(s *Server, ci *CallInfo, block bool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -177,16 +177,13 @@ func (c *Client) SynCall(s *Server, id interface{}, args ...interface{}) (interf
 		return nil, err
 	}
 
+	// sync.
 	ri := <-c.chanSyncRet
 	return ri.ret, ri.err
 }
 
 // AsyncCall do a async call to server.
 func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error {
-	if len(_args) < 1 {
-		panic("callback function not found")
-	}
-
 	args := _args[:len(_args)-1]
 	cb := _args[len(_args)-1]
 
@@ -197,17 +194,9 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 		cb = nil
 	}
 
-	// !!double_check!!
 	var _cb func(interface{}, error)
 	if cb != nil {
 		_cb = cb.(func(interface{}, error))
-	}
-
-	c.pendingAsynCall++
-
-	if c.AllowOverFlood == false && c.pendingAsynCall >= cap(c.ChanAsynRet) {
-		c.Cb(&RetInfo{err: errors.New("too many calls"), cb: _cb})
-		return nil
 	}
 
 	_, err := validate(s, id)
@@ -215,6 +204,13 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 		c.ChanAsynRet <- &RetInfo{err: err, cb: _cb}
 		return fmt.Errorf("no matching function for asynCall call: %v", id)
 	}
+
+	if c.pendingAsynCall >= cap(c.ChanAsynRet) {
+		c.ChanAsynRet <- &RetInfo{err: errors.New("too many calls"), cb: _cb}
+		return nil
+	}
+
+	c.pendingAsynCall++
 
 	err = c.call(s, &CallInfo{
 		id:      id,
@@ -225,6 +221,7 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 
 	if err != nil {
 		c.ChanAsynRet <- &RetInfo{err: err, cb: _cb}
+		c.pendingAsynCall--
 		return err
 	}
 
