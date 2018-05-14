@@ -124,8 +124,6 @@ func (s *Server) Close() {
 	}
 }
 
-// start client
-
 // NewClient create a rpc client.
 //
 // bufsize define the async buffer size of aysnc callback channel
@@ -154,7 +152,7 @@ func (c *Client) call(s *Server, ci *CallInfo, block bool) (err error) {
 		case <-time.After(c.timeout):
 			c.SkipCounter++
 			c.pendingAsynCall--
-			err = errors.New("server timeout")
+			err = errors.New("server is too busy.")
 		}
 	}
 	return
@@ -199,18 +197,18 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 		_cb = cb.(func(interface{}, error))
 	}
 
+	c.pendingAsynCall++
+
 	_, err := validate(s, id)
 	if err != nil {
 		c.ChanAsynRet <- &RetInfo{err: err, cb: _cb}
 		return fmt.Errorf("no matching function for asynCall call: %v", id)
 	}
 
-	if c.pendingAsynCall >= cap(c.ChanAsynRet) {
-		c.ChanAsynRet <- &RetInfo{err: errors.New("too many calls"), cb: _cb}
+	if c.pendingAsynCall > cap(c.ChanAsynRet) {
+		c.ChanAsynRet <- &RetInfo{err: errors.New("too many calls of client"), cb: _cb}
 		return nil
 	}
-
-	c.pendingAsynCall++
 
 	err = c.call(s, &CallInfo{
 		id:      id,
@@ -221,7 +219,6 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 
 	if err != nil {
 		c.ChanAsynRet <- &RetInfo{err: err, cb: _cb}
-		c.pendingAsynCall--
 		return err
 	}
 
@@ -229,7 +226,7 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 }
 
 // Cb do exec the callback of ri when the async call is finish handled by server.
-func (c *Client) Cb(ri *RetInfo) {
+func (c *Client) Cb(ri *RetInfo) *RetInfo {
 	c.pendingAsynCall--
 
 	defer func() {
@@ -247,10 +244,10 @@ func (c *Client) Cb(ri *RetInfo) {
 	if ri.cb != nil {
 		ri.cb(ri.ret, ri.err)
 	}
-	return
+	return ri
 }
 
-// Close close goroutine internal if it exist, and do other cleanup job.
+// Close do close goroutine internal if it exist, and do other cleanup job.
 func (c *Client) Close() {
 	//The rule of thumb here is that only writers should close channels.
 }
