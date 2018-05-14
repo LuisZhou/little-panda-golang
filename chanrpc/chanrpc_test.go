@@ -67,11 +67,10 @@ func TestFloodServer(t *testing.T) {
 
 	Start(s, closesig)
 	defer func() {
-		//s.Close()
 		closesig <- true
 	}()
 
-	c := chanrpc.NewClient(100, 0) //s.Open(100, 0)
+	c := chanrpc.NewClient(100, 0)
 	defer func() {
 		closesig <- true
 	}()
@@ -81,17 +80,13 @@ func TestFloodServer(t *testing.T) {
 	Wait(c, closesig)
 
 	for i := 0; i < 100; i++ {
-		// If we use Call(). It will waiting, not timeout.
 		c.AsynCall(s, "add", 1, 2, func(ret interface{}, err error) {
-
 			if err != nil {
 				t.Log(err)
 			} else {
 				t.Log(ret)
 			}
-
 			counter++
-
 			if counter+c.SkipCounter == 100 {
 				wg.Done()
 			}
@@ -117,7 +112,7 @@ func TestFloodClient(t *testing.T) {
 		closesig <- true
 	}()
 
-	c := chanrpc.NewClient(1, 0) //s.Open(1, 0)
+	c := chanrpc.NewClient(1, 0)
 	defer func() {
 		c.Close()
 	}()
@@ -166,8 +161,6 @@ func TestError(t *testing.T) {
 		closesig <- true
 	}()
 
-	// todo: add test s.Go
-
 	_, err := chanrpc.SynCall(s, "f0", 123)
 	if strings.Compare(err.(error).Error(), "err 1") != 0 {
 		t.Error("err test fail")
@@ -208,9 +201,9 @@ func Example() {
 		return n1 + n2, err
 	})
 	Start(s, closesig)
-	// defer func() {
-	// 	s.Close()
-	// }()
+	defer func() {
+		closesig <- true
+	}()
 
 	// 1. Example: sync call.
 
@@ -220,9 +213,9 @@ func Example() {
 	// 2. Example: async call
 
 	c := chanrpc.NewClient(10, time.Millisecond*50) //s.Open(10, time.Millisecond*50)
-	// defer func() {
-	// 	c.Close()
-	// }()
+	defer func() {
+		c.Close()
+	}()
 
 	wg.Add(1)
 

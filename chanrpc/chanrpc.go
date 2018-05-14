@@ -12,38 +12,38 @@ import (
 
 // RpcCommon is common field shared by rpc server and client.
 type RpcCommon struct {
-	timeout     time.Duration
-	SkipCounter int
+	timeout     time.Duration // timeout of write to channel.
+	SkipCounter int           // counter count the number of skip return when timeout.
 }
 
 // CallInfo is info of call to server.
 type CallInfo struct {
-	id      interface{}
-	args    []interface{}
-	chanRet chan *RetInfo
-	cb      func(interface{}, error)
+	id      interface{}              // call id.
+	args    []interface{}            // call args.
+	chanRet chan *RetInfo            // return channel, such as ci.chanRet <- ri.
+	cb      func(interface{}, error) // callback which will pass to RetInfo.
 }
 
 // RetInfo is info of return from server.
 type RetInfo struct {
-	ret interface{}
-	err error
-	cb  func(interface{}, error)
+	ret interface{}              // value of return.
+	err error                    // err of return.
+	cb  func(interface{}, error) // callback of return.
 }
 
 // Server is a chanrpc server.
 type Server struct {
-	functions map[interface{}]interface{}
-	ChanCall  chan *CallInfo
-	RpcCommon
+	functions map[interface{}]interface{} // map id(cmd) to handler.
+	ChanCall  chan *CallInfo              // channel of CallInfo.
+	RpcCommon                             // common variate.
 }
 
 // Client is a chanrpc client.
 type Client struct {
-	chanSyncRet     chan *RetInfo
-	ChanAsynRet     chan *RetInfo
-	pendingAsynCall int
-	RpcCommon
+	chanSyncRet     chan *RetInfo // channel of RetInfo for sync call.
+	ChanAsynRet     chan *RetInfo // channel of RetInfo for asyn call.
+	pendingAsynCall int           // number of not returned asyn call.
+	RpcCommon                     // common variate.
 }
 
 // NewServer new a server.
