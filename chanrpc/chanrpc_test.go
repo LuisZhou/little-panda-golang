@@ -62,13 +62,12 @@ func TestFloodServer(t *testing.T) {
 	}()
 
 	c := chanrpc.NewClient(100, 0)
+	Wait(c, closesig)
 	defer func() {
 		closesig <- true
 	}()
 
 	counter := 0
-
-	Wait(c, closesig)
 
 	flood := 20
 
@@ -98,7 +97,7 @@ func TestFloodClient(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	s := chanrpc.NewServer(1000, 10)
+	s := chanrpc.NewServer(1000, 0)
 	s.Register("print", func(args []interface{}) (ret interface{}, err error) {
 		n1 := args[0].(int)
 		return n1, err
@@ -119,20 +118,23 @@ func TestFloodClient(t *testing.T) {
 	}()
 
 	counter := 0
+	err_counter := 0
 
 	flood := 20
 	for i := 0; i < flood; i++ {
 		c.AsynCall(s, "print", i, func(ret interface{}, err error) {
 			if err != nil {
+				err_counter++
 				t.Log(err)
 			} else {
+				counter++
 				t.Log(ret)
 			}
-			counter++
+
 			// careful: this is normally 19 + 1, the server even no chance to return to callback, for the channel is full.
-			// the full error return is first return to the channel.
-			if counter+s.SkipCounter == flood {
-				t.Log(counter, s.SkipCounter)
+			// the 'full-error' return is first return to the channel.
+			if err_counter+counter+s.SkipCounter == flood {
+				t.Log(err_counter, counter, s.SkipCounter)
 				wg.Done()
 			}
 		})
