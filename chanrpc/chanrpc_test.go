@@ -122,7 +122,7 @@ func TestFloodClient(t *testing.T) {
 
 	flood := 20
 	for i := 0; i < flood; i++ {
-		c.AsynCall(s, "print", i, func(ret interface{}, err error) {
+		err := c.AsynCall(s, "print", i, func(ret interface{}, err error) {
 			if err != nil {
 				err_counter++
 				t.Log(err)
@@ -138,6 +138,10 @@ func TestFloodClient(t *testing.T) {
 				wg.Done()
 			}
 		})
+
+		if err != nil {
+			err_counter++
+		}
 	}
 
 	wg.Wait()

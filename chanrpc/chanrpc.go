@@ -205,11 +205,10 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 		return fmt.Errorf("no matching function for asynCall call: %v", id)
 	}
 
-	// this stuff will make the situation worst.
-	// if c.pendingAsynCall > cap(c.ChanAsynRet) {
-	// 	c.ChanAsynRet <- &RetInfo{err: errors.New("too many calls of client"), cb: _cb}
-	// 	return nil
-	// }
+	if c.pendingAsynCall > cap(c.ChanAsynRet) {
+		//c.ChanAsynRet <- &RetInfo{err: errors.New("too many calls of client"), cb: _cb}
+		return fmt.Errorf("too many calls of client")
+	}
 
 	err = c.call(s, &CallInfo{
 		id:      id,

@@ -122,7 +122,6 @@ func (s *Skeleton) RegisterCommand(name string, help string, f interface{}) {
 }
 
 func (s *Skeleton) GoRpc(id interface{}, args ...interface{}) {
-	//s.ChanRPCServer.Go(id, args...)
 	s.AsynCall(s.server, id, args...)
 }
 
