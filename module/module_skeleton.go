@@ -12,7 +12,8 @@ type Skeleton struct {
 	GoLen              int
 	TimerDispatcherLen int
 	AsynCallLen        int
-	ChanRPCServer      *chanrpc.Server
+	ChanRPCLen         int
+	TimeoutAsynRet     int
 	g                  *g.Go
 	dispatcher         *timer.Dispatcher
 	client             *chanrpc.Client
@@ -27,19 +28,20 @@ func (s *Skeleton) Init() {
 	if s.TimerDispatcherLen <= 0 {
 		s.TimerDispatcherLen = 0
 	}
-	if s.AsynCallLen <= 0 {
-		s.AsynCallLen = 1 // todo: should configure it.
+	if s.ChanRPCLen <= 0 {
+		s.ChanRPCLen = 1
 	}
-
+	if s.AsynCallLen <= 0 {
+		s.AsynCallLen = 1
+	}
+	if s.TimeoutAsynRet <= 0 {
+		s.TimeoutAsynRet = 10
+	}
 	s.g = g.New(s.GoLen)
 	s.dispatcher = timer.NewDispatcher(s.TimerDispatcherLen)
-	s.client = chanrpc.NewClient(s.AsynCallLen, 0) // todo: should configure here.
-	s.server = s.ChanRPCServer                     // todo: this is not a good idea.
-
-	if s.server == nil {
-		s.server = chanrpc.NewServer(0, 0) // todo: should configure here.
-	}
-	s.commandServer = chanrpc.NewServer(0, 0) // todo: should configure here.
+	s.client = chanrpc.NewClient(s.AsynCallLen, 10)
+	s.server = chanrpc.NewServer(s.ChanRPCLen, time.Duration(s.TimeoutAsynRet))
+	s.commandServer = chanrpc.NewServer(s.ChanRPCLen, time.Duration(s.TimeoutAsynRet))
 }
 
 func (s *Skeleton) Run(closeSig chan bool) {
@@ -110,10 +112,6 @@ func (s *Skeleton) SynCall(server *chanrpc.Server, id interface{}, args ...inter
 }
 
 func (s *Skeleton) RegisterChanRPC(id interface{}, f interface{}) {
-	if s.ChanRPCServer == nil {
-		panic("invalid ChanRPCServer")
-	}
-
 	s.server.Register(id, f.(func([]interface{}) (interface{}, error)))
 }
 
@@ -126,5 +124,5 @@ func (s *Skeleton) GoRpc(id interface{}, args ...interface{}) {
 }
 
 func (s *Skeleton) GetChanrpcServer() *chanrpc.Server {
-	return s.ChanRPCServer
+	return s.server
 }

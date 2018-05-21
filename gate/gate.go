@@ -50,10 +50,7 @@ func (gate *Gate) Run(closeSig chan bool) {
 		wsServer.KeyFile = gate.KeyFile
 		wsServer.NewAgent = func(conn *network.WSConn) network.Agent {
 			a := gate.NewWsAgent(conn, gate)
-			if gate.Skeleton.ChanRPCServer != nil {
-				//gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
-				gate.Skeleton.GoRpc("NewAgent", a)
-			}
+			gate.Skeleton.GoRpc("NewAgent", a)
 			return a
 		}
 	}
@@ -70,10 +67,7 @@ func (gate *Gate) Run(closeSig chan bool) {
 		tcpServer.LittleEndian = gate.LittleEndian
 		tcpServer.NewAgent = func(conn *network.TCPConn) network.Agent {
 			a := gate.NewTcpAgent(conn, gate)
-			if gate.Skeleton.ChanRPCServer != nil {
-				//gate.Skeleton.ChanRPCServer.Go("NewAgent", a)
-				gate.Skeleton.GoRpc("NewAgent", a)
-			}
+			gate.Skeleton.GoRpc("NewAgent", a)
 			return a
 		}
 	}
@@ -102,7 +96,8 @@ func (gate *Gate) OnInit() {
 		GoLen:              conf.GateConfig.GoLen,
 		TimerDispatcherLen: conf.GateConfig.TimerDispatcherLen,
 		AsynCallLen:        conf.GateConfig.AsynCallLen,
-		ChanRPCServer:      chanrpc.NewServer(conf.GateConfig.ChanRPCLen, time.Duration(conf.GateConfig.TimeoutAsynRet)),
+		ChanRPCLen:         conf.GateConfig.ChanRPCLen,
+		TimeoutAsynRet:     conf.GateConfig.TimeoutAsynRet,
 	}
 	s.Init()
 	gate.Skeleton = s
@@ -129,7 +124,8 @@ func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
 		GoLen:              conf.AgentConfig.GoLen,
 		TimerDispatcherLen: conf.AgentConfig.TimerDispatcherLen,
 		AsynCallLen:        conf.AgentConfig.AsynCallLen,
-		ChanRPCServer:      chanrpc.NewServer(conf.AgentConfig.ChanRPCLen, time.Duration(conf.AgentConfig.TimeoutAsynRet)),
+		ChanRPCLen:         conf.AgentConfig.ChanRPCLen,
+		TimeoutAsynRet:     conf.AgentConfig.TimeoutAsynRet,
 	}
 	s.Init()
 	go s.Run(a.closeChan)
@@ -156,11 +152,9 @@ func (a *AgentTemplate) Run() {
 }
 
 func (a *AgentTemplate) OnClose() {
-	if a.gate.Skeleton.ChanRPCServer != nil {
-		_, err := chanrpc.SynCall(a.gate.Skeleton.ChanRPCServer, "CloseAgent", a)
-		if err != nil {
-			log.Error("chanrpc error: %v", err)
-		}
+	_, err := chanrpc.SynCall(a.gate.Skeleton.GetChanrpcServer(), "CloseAgent", a)
+	if err != nil {
+		log.Error("chanrpc error: %v", err)
 	}
 
 	a.closeChan <- true
