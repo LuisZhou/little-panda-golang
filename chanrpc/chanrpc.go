@@ -144,6 +144,8 @@ func (c *Client) call(s *Server, ci *CallInfo, block bool) (err error) {
 		}
 	}()
 
+	c.pendingAsynCall++
+
 	if block {
 		s.ChanCall <- ci
 	} else {
@@ -177,6 +179,8 @@ func (c *Client) SynCall(s *Server, id interface{}, args ...interface{}) (interf
 
 	// sync.
 	ri := <-c.chanSyncRet
+	c.pendingAsynCall--
+
 	return ri.ret, ri.err
 }
 
@@ -197,11 +201,9 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 		_cb = cb.(func(interface{}, error))
 	}
 
-	c.pendingAsynCall++
-
 	_, err := validate(s, id)
 	if err != nil {
-		c.ChanAsynRet <- &RetInfo{err: err, cb: _cb}
+		//c.ChanAsynRet <- &RetInfo{err: err, cb: _cb}
 		return fmt.Errorf("no matching function for asynCall call: %v", id)
 	}
 
@@ -218,7 +220,7 @@ func (c *Client) AsynCall(s *Server, id interface{}, _args ...interface{}) error
 	}, false)
 
 	if err != nil {
-		c.ChanAsynRet <- &RetInfo{err: err, cb: _cb}
+		// c.ChanAsynRet <- &RetInfo{err: err, cb: _cb}
 		return err
 	}
 
