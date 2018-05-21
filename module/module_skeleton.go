@@ -9,16 +9,16 @@ import (
 )
 
 type Skeleton struct {
-	GoLen              int
-	TimerDispatcherLen int
-	AsynCallLen        int
-	ChanRPCLen         int
-	TimeoutAsynRet     int
-	g                  *g.Go
-	dispatcher         *timer.Dispatcher
-	client             *chanrpc.Client
-	server             *chanrpc.Server
-	commandServer      *chanrpc.Server
+	GoLen              int               // len of call-channel of Go.
+	TimerDispatcherLen int               // len of call-channel of Timer.
+	AsynCallLen        int               // len of channel of return of async call of rpc.
+	ChanRPCLen         int               // len of channel of called of rpc.
+	TimeoutAsynRet     int               // timeout of wait for return of rpc.
+	g                  *g.Go             // Go module.
+	dispatcher         *timer.Dispatcher // Timer module.
+	client             *chanrpc.Client   // Client of rpc.
+	server             *chanrpc.Server   // Server of rpc.
+	commandServer      *chanrpc.Server   // Command module.
 }
 
 func (s *Skeleton) Init() {
@@ -34,8 +34,8 @@ func (s *Skeleton) Init() {
 	if s.AsynCallLen <= 0 {
 		s.AsynCallLen = 1
 	}
-	if s.TimeoutAsynRet <= 0 {
-		s.TimeoutAsynRet = 10
+	if s.TimeoutAsynRet < 0 {
+		s.TimeoutAsynRet = 0
 	}
 	s.g = g.New(s.GoLen)
 	s.dispatcher = timer.NewDispatcher(s.TimerDispatcherLen)
@@ -100,23 +100,11 @@ func (s *Skeleton) NewLinearContext() *g.LinearContext {
 }
 
 func (s *Skeleton) AsynCall(server *chanrpc.Server, id interface{}, args ...interface{}) error {
-	if s.AsynCallLen == 0 {
-		panic("invalid AsynCallLen")
-	}
-
 	return s.client.AsynCall(server, id, args...)
 }
 
 func (s *Skeleton) SynCall(server *chanrpc.Server, id interface{}, args ...interface{}) (interface{}, error) {
 	return s.client.SynCall(server, id, args...)
-}
-
-func (s *Skeleton) RegisterChanRPC(id interface{}, f interface{}) {
-	s.server.Register(id, f.(func([]interface{}) (interface{}, error)))
-}
-
-func (s *Skeleton) RegisterCommand(name string, help string, f interface{}) {
-	console.Register(name, help, f, s.commandServer)
 }
 
 func (s *Skeleton) GoRpc(id interface{}, args ...interface{}) {
@@ -125,4 +113,12 @@ func (s *Skeleton) GoRpc(id interface{}, args ...interface{}) {
 
 func (s *Skeleton) GetChanrpcServer() *chanrpc.Server {
 	return s.server
+}
+
+func (s *Skeleton) RegisterChanRPC(id interface{}, f interface{}) {
+	s.server.Register(id, f.(func([]interface{}) (interface{}, error)))
+}
+
+func (s *Skeleton) RegisterCommand(name string, help string, f interface{}) {
+	console.Register(name, help, f, s.commandServer)
 }
