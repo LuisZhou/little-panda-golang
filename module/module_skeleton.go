@@ -21,12 +21,13 @@ type Skeleton struct {
 	commandServer      *chanrpc.Server   // Command module.
 }
 
+// Init do init of internal module.
 func (s *Skeleton) Init() {
 	if s.GoLen <= 0 {
-		s.GoLen = 0
+		s.GoLen = 1
 	}
 	if s.TimerDispatcherLen <= 0 {
-		s.TimerDispatcherLen = 0
+		s.TimerDispatcherLen = 1
 	}
 	if s.ChanRPCLen <= 0 {
 		s.ChanRPCLen = 1
@@ -44,6 +45,7 @@ func (s *Skeleton) Init() {
 	s.commandServer = chanrpc.NewServer(s.ChanRPCLen, time.Duration(s.TimeoutAsynRet))
 }
 
+// Run start running all module.
 func (s *Skeleton) Run(closeSig chan bool) {
 	for {
 		select {
@@ -67,58 +69,52 @@ func (s *Skeleton) Run(closeSig chan bool) {
 	}
 }
 
+// AfterFunc call cb after d duration.
 func (s *Skeleton) AfterFunc(d time.Duration, cb func()) *timer.Timer {
-	if s.TimerDispatcherLen == 0 {
-		panic("invalid TimerDispatcherLen")
-	}
-
 	return s.dispatcher.AfterFunc(d, cb)
 }
 
+// CronFunc do a cron job on time dispatcher.
 func (s *Skeleton) CronFunc(cronExpr *timer.CronExpr, cb func()) *timer.Cron {
-	if s.TimerDispatcherLen == 0 {
-		panic("invalid TimerDispatcherLen")
-	}
-
 	return s.dispatcher.CronFunc(cronExpr, cb)
 }
 
+// Go do call to go module.
 func (s *Skeleton) Go(f func(), cb func()) {
-	if s.GoLen == 0 {
-		panic("invalid GoLen")
-	}
-
 	s.g.Go(f, cb)
 }
 
+// NewLinearContext create new linear context.
 func (s *Skeleton) NewLinearContext() *g.LinearContext {
-	if s.GoLen == 0 {
-		panic("invalid GoLen")
-	}
-
 	return s.g.NewLinearContext()
 }
 
+// RegisterCommand register command.
+func (s *Skeleton) RegisterCommand(name string, help string, f interface{}) {
+	console.Register(name, help, f, s.commandServer)
+}
+
+// AsynCall do a async call to rpc server.
 func (s *Skeleton) AsynCall(server *chanrpc.Server, id interface{}, args ...interface{}) error {
 	return s.client.AsynCall(server, id, args...)
 }
 
+// SynCall do a syn call to rpc server.
 func (s *Skeleton) SynCall(server *chanrpc.Server, id interface{}, args ...interface{}) (interface{}, error) {
 	return s.client.SynCall(server, id, args...)
 }
 
+// GoRpc do a async call to this Skeleton's rpc server, but no async return.
 func (s *Skeleton) GoRpc(id interface{}, args ...interface{}) {
 	s.AsynCall(s.server, id, args...)
 }
 
+// GetChanrpcServer return this Skeleton's rpc server
 func (s *Skeleton) GetChanrpcServer() *chanrpc.Server {
 	return s.server
 }
 
-func (s *Skeleton) RegisterChanRPC(id interface{}, f interface{}) {
-	s.server.Register(id, f.(func([]interface{}) (interface{}, error)))
-}
-
-func (s *Skeleton) RegisterCommand(name string, help string, f interface{}) {
-	console.Register(name, help, f, s.commandServer)
+// RegisterChanRPC register handler for id.
+func (s *Skeleton) RegisterChanRPC(id interface{}, f func([]interface{}) (interface{}, error)) {
+	s.server.Register(id, f)
 }
