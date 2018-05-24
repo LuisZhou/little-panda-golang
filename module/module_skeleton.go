@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// Skeleton implements main function of module.
 type Skeleton struct {
 	GoLen              int               // len of call-channel of Go.
 	TimerDispatcherLen int               // len of call-channel of Timer.

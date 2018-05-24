@@ -1,7 +1,6 @@
 package module
 
 import (
-	"github.com/LuisZhou/lpge/chanrpc"
 	"github.com/LuisZhou/lpge/module"
 	"strconv"
 	"sync"
@@ -25,7 +24,6 @@ func TestModuleMg(t *testing.T) {
 			GoLen:              10,
 			TimerDispatcherLen: 10,
 			AsynCallLen:        10,
-			ChanRPCServer:      chanrpc.NewServer(10, 0),
 		}
 		s.Init()
 
@@ -49,10 +47,10 @@ func TestModuleMg(t *testing.T) {
 	})
 
 	wg.Add(1)
-	e3 := m1.Send("test1", uint16(1), "test")
+	e3 := m1.AsynCall("test1", uint16(1), "test")
 	t.Log(e3)
 	wg.Wait()
 
 	wg.Add(1)
-	m1.Call("test1", uint16(1), "test")
+	m1.SynCall("test1", uint16(1), "test")
 }
