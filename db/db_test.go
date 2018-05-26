@@ -6,7 +6,7 @@ import (
 )
 
 func TestDb(t *testing.T) {
-	db.DsnConf["mysql"] = "gls:glsDbCenterBG@(192.168.163.133)/gls?charset=utf8"
+	db.DsnConf["mysql"] = "user:password@(192.168.163.133)/gls?charset=utf8"
 	db.Create()
 
 	c, err := db.GetDefaultConnection()

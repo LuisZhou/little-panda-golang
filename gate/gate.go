@@ -2,39 +2,29 @@
 package gate
 
 import (
-	"github.com/LuisZhou/lpge/chanrpc"
 	"github.com/LuisZhou/lpge/conf"
-	"github.com/LuisZhou/lpge/log"
+	_ "github.com/LuisZhou/lpge/log"
 	"github.com/LuisZhou/lpge/module"
 	"github.com/LuisZhou/lpge/network"
-	"net"
-	"reflect"
 	"time"
 )
 
 type NewAgent func(conn network.Conn, gate *Gate) network.Agent
 
-// Gate start ws server and tcp server base on its configure. And bind EventListener and NewAgent to it.
-// NewAgent will exe when there is a new client here.
+// Gate for ws and tcp connection.
 type Gate struct {
-	MaxConnNum      int
-	PendingWriteNum int
-	MaxMsgLen       uint16
-	//EventListener   *chanrpc.Server
-
-	// websocket
-	WSAddr      string
-	HTTPTimeout time.Duration
-	CertFile    string
-	KeyFile     string
-
-	// tcp
-	TCPAddr      string
-	LittleEndian bool
-
-	*module.Skeleton
-	NewWsAgent  NewAgent
-	NewTcpAgent NewAgent
+	*module.Skeleton               // implement of module.
+	MaxConnNum       int           // max conn of both tcp and ws connect.
+	PendingWriteNum  int           // write channel buffer number, per agent, for both tcp and ws connect.
+	MaxMsgLen        uint16        // max Msg Len of MsgParser of server, for both tcp and ws connect.
+	WSAddr           string        // websocket server address.
+	HTTPTimeout      time.Duration // websocket http timeout.
+	CertFile         string        // websocket http cert file.
+	KeyFile          string        // websocket http key file.
+	NewWsAgent       NewAgent      // websocket creator for new agent.
+	TCPAddr          string        // tcp server address.
+	LittleEndian     bool          // tcp little endian or not of tcp connection.
+	NewTcpAgent      NewAgent      // tcp creator for new agent.
 }
 
 func (gate *Gate) Run(closeSig chan bool) {
@@ -104,92 +94,3 @@ func (gate *Gate) OnInit() {
 }
 
 func (gate *Gate) OnDestroy() {}
-
-// define AgentTemplae
-
-type AgentTemplate struct {
-	conn      network.Conn
-	gate      *Gate
-	userData  interface{}
-	Processor network.Processor
-	closeChan chan bool
-	*module.Skeleton
-}
-
-func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
-	a.conn = conn
-	a.gate = gate
-	a.closeChan = make(chan bool, 1)
-	s := &module.Skeleton{
-		GoLen:              conf.AgentConfig.GoLen,
-		TimerDispatcherLen: conf.AgentConfig.TimerDispatcherLen,
-		AsynCallLen:        conf.AgentConfig.AsynCallLen,
-		ChanRPCLen:         conf.AgentConfig.ChanRPCLen,
-		TimeoutAsynRet:     conf.AgentConfig.TimeoutAsynRet,
-	}
-	s.Init()
-	go s.Run(a.closeChan)
-	a.Skeleton = s
-}
-
-func (a *AgentTemplate) Run() {
-	for {
-		cmd, data, err := a.conn.ReadMsg()
-		if err != nil {
-			log.Debug("read message: %v", err)
-			break
-		}
-
-		if a.Processor != nil {
-			msg, err := a.Processor.Unmarshal(cmd, data)
-			if err != nil {
-				log.Debug("unmarshal message error: %v", err)
-				break
-			}
-			a.GoRpc(cmd, msg)
-		}
-	}
-}
-
-func (a *AgentTemplate) OnClose() {
-	_, err := chanrpc.SynCall(a.gate.Skeleton.GetChanrpcServer(), "CloseAgent", a)
-	if err != nil {
-		log.Error("chanrpc error: %v", err)
-	}
-
-	a.closeChan <- true
-}
-
-func (a *AgentTemplate) WriteMsg(cmd uint16, msg interface{}) {
-	if a.Processor != nil {
-		data, err := a.Processor.Marshal(cmd, msg)
-		if err != nil {
-			log.Error("marshal message %v error: %v", reflect.TypeOf(msg), err)
-			return
-		}
-		err = a.conn.WriteMsg(cmd, data)
-		if err != nil {
-			log.Error("write message %v error: %v", reflect.TypeOf(msg), err)
-		}
-	}
-}
-
-func (a *AgentTemplate) LocalAddr() net.Addr {
-	return a.conn.LocalAddr()
-}
-
-func (a *AgentTemplate) RemoteAddr() net.Addr {
-	return a.conn.RemoteAddr()
-}
-
-func (a *AgentTemplate) Close() {
-	a.conn.Close()
-}
-
-func (a *AgentTemplate) UserData() interface{} {
-	return a.userData
-}
-
-func (a *AgentTemplate) SetUserData(data interface{}) {
-	a.userData = data
-}
