@@ -1,6 +1,9 @@
 package util
 
 import (
+	"github.com/LuisZhou/lpge/conf"
+	"github.com/LuisZhou/lpge/log"
+	"runtime"
 	"unicode"
 )
 
@@ -31,4 +34,16 @@ func CamelCaseToUnderscore(str string) string {
 	}
 	output = addSegment(output, segment)
 	return string(output)
+}
+
+func RecoverAndLog() {
+	if r := recover(); r != nil {
+		if conf.LenStackBuf > 0 {
+			buf := make([]byte, conf.LenStackBuf)
+			l := runtime.Stack(buf, false)
+			log.Error("%v: %s", r, buf[:l])
+		} else {
+			log.Error("%v", r)
+		}
+	}
 }

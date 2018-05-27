@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// NewAgent func type, used to create new agent for one connect.
 type NewAgent func(conn network.Conn, gate *Gate) network.Agent
 
 // Gate for ws and tcp connection.
@@ -25,8 +26,10 @@ type Gate struct {
 	TCPAddr          string        // tcp server address.
 	LittleEndian     bool          // tcp little endian or not of tcp connection.
 	NewTcpAgent      NewAgent      // tcp creator for new agent.
+	closeChan        chan bool     // close sig for internal module skeleton.
 }
 
+// Start starts ws and tcp server.
 func (gate *Gate) Run(closeSig chan bool) {
 	var wsServer *network.WSServer
 	if gate.WSAddr != "" {
@@ -34,7 +37,7 @@ func (gate *Gate) Run(closeSig chan bool) {
 		wsServer.Addr = gate.WSAddr
 		wsServer.MaxConnNum = gate.MaxConnNum
 		wsServer.PendingWriteNum = gate.PendingWriteNum
-		wsServer.MaxMsgLen = uint32(gate.MaxMsgLen) // todo: double check
+		wsServer.MaxMsgLen = uint32(gate.MaxMsgLen)
 		wsServer.HTTPTimeout = gate.HTTPTimeout
 		wsServer.CertFile = gate.CertFile
 		wsServer.KeyFile = gate.KeyFile
@@ -44,8 +47,6 @@ func (gate *Gate) Run(closeSig chan bool) {
 			return a
 		}
 	}
-
-	// todo: need another server which is used to cluster.
 
 	var tcpServer *network.TCPServer
 	if gate.TCPAddr != "" {
@@ -65,23 +66,30 @@ func (gate *Gate) Run(closeSig chan bool) {
 	if wsServer != nil {
 		wsServer.Start()
 	}
+
 	if tcpServer != nil {
 		tcpServer.Start()
 	}
+
 	<-closeSig
 	if wsServer != nil {
 		wsServer.Close()
 	}
+
 	if tcpServer != nil {
 		tcpServer.Close()
 	}
+
+	gate.closeChan <- true
 }
 
+// OnInit implement Module interface OnInit.
 func (gate *Gate) OnInit() {
 	if gate.NewTcpAgent == nil || gate.NewWsAgent == nil {
 		panic("gate miss NewTcpAgent or NewWsAgent")
 	}
 
+	gate.closeChan = make(chan bool, 1)
 	s := &module.Skeleton{
 		GoLen:              conf.GateConfig.GoLen,
 		TimerDispatcherLen: conf.GateConfig.TimerDispatcherLen,
@@ -90,7 +98,12 @@ func (gate *Gate) OnInit() {
 		TimeoutAsynRet:     conf.GateConfig.TimeoutAsynRet,
 	}
 	s.Init()
+	go s.Run(gate.closeChan)
+
 	gate.Skeleton = s
 }
 
-func (gate *Gate) OnDestroy() {}
+// OnDestroy implement Module interface OnDestroy.
+func (gate *Gate) OnDestroy() {
+
+}

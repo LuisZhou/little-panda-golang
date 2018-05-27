@@ -10,29 +10,34 @@ import (
 	"reflect"
 )
 
+// Agent for client of ws or tcp.
 type Agent interface {
-	WriteMsg(cmd uint16, msg interface{})
-	LocalAddr() net.Addr
-	RemoteAddr() net.Addr
-	Close()
-	UserData() interface{}
-	SetUserData(data interface{})
-	GoRpc(id interface{}, args ...interface{})
+	Run()                                      // run start running, normaly process the msg.
+	WriteMsg(cmd uint16, msg interface{})      // write msg to message.
+	LocalAddr() net.Addr                       // get local addr
+	RemoteAddr() net.Addr                      // get remote addr
+	Close()                                    // close agent.
+	UserData() interface{}                     // get user data of the agent.
+	SetUserData(data interface{})              // set user data of the agent.
+	GoRpc(id interface{}, args ...interface{}) // GoRpc do a async call to this Skeleton's rpc server, but no async ret.
 }
 
+// Implement of Agent.
 type AgentTemplate struct {
-	conn      network.Conn
-	gate      *Gate
-	userData  interface{}
-	Processor network.Processor
-	closeChan chan bool
-	*module.Skeleton
+	*module.Skeleton                   // is a Skeleton.
+	conn             network.Conn      // conn of this agent.
+	gate             *Gate             // gate of this server.
+	userData         interface{}       // user data.
+	Processor        network.Processor // processor of msg.
+	closeChan        chan bool         // close sig for internal module skeleton.
 }
 
+// Init do init agent.
 func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
 	a.conn = conn
 	a.gate = gate
 	a.closeChan = make(chan bool, 1)
+
 	s := &module.Skeleton{
 		GoLen:              conf.AgentConfig.GoLen,
 		TimerDispatcherLen: conf.AgentConfig.TimerDispatcherLen,
@@ -42,9 +47,11 @@ func (a *AgentTemplate) Init(conn network.Conn, gate *Gate) {
 	}
 	s.Init()
 	go s.Run(a.closeChan)
+
 	a.Skeleton = s
 }
 
+// Run start process msg from agent. The server will go this func when new agent create.
 func (a *AgentTemplate) Run() {
 	for {
 		cmd, data, err := a.conn.ReadMsg()
@@ -64,15 +71,16 @@ func (a *AgentTemplate) Run() {
 	}
 }
 
+// OnClose is called when the connection is destoried.
 func (a *AgentTemplate) OnClose() {
 	_, err := chanrpc.SynCall(a.gate.Skeleton.GetChanrpcServer(), "CloseAgent", a)
 	if err != nil {
 		log.Error("chanrpc error: %v", err)
 	}
-
 	a.closeChan <- true
 }
 
+// Write msg to the connection.
 func (a *AgentTemplate) WriteMsg(cmd uint16, msg interface{}) {
 	if a.Processor != nil {
 		data, err := a.Processor.Marshal(cmd, msg)
@@ -87,22 +95,27 @@ func (a *AgentTemplate) WriteMsg(cmd uint16, msg interface{}) {
 	}
 }
 
+// LocalAddr return local addr.
 func (a *AgentTemplate) LocalAddr() net.Addr {
 	return a.conn.LocalAddr()
 }
 
+// RemoteAddr return remote addr.
 func (a *AgentTemplate) RemoteAddr() net.Addr {
 	return a.conn.RemoteAddr()
 }
 
+// Close close the connection.
 func (a *AgentTemplate) Close() {
 	a.conn.Close()
 }
 
+// UserData get user data.
 func (a *AgentTemplate) UserData() interface{} {
 	return a.userData
 }
 
+// SetUserData set user data.
 func (a *AgentTemplate) SetUserData(data interface{}) {
 	a.userData = data
 }

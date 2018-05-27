@@ -1,14 +1,12 @@
+/* Package g provide linear execute or callback of operation. */
 package g
 
 import (
 	"container/list"
-	"github.com/LuisZhou/lpge/conf"
-	"github.com/LuisZhou/lpge/log"
-	"runtime"
+	"github.com/LuisZhou/lpge/util"
 	"sync"
 )
 
-// one Go per goroutine (goroutine not safe)
 type Go struct {
 	ChanCb    chan func()
 	pendingGo int
@@ -32,21 +30,14 @@ func New(l int) *Go {
 	return g
 }
 
+// Go to execute f, and linear call cb.
 func (g *Go) Go(f func(), cb func()) {
 	g.pendingGo++
 
 	go func() {
 		defer func() {
 			g.ChanCb <- cb
-			if r := recover(); r != nil {
-				if conf.LenStackBuf > 0 {
-					buf := make([]byte, conf.LenStackBuf)
-					l := runtime.Stack(buf, false)
-					log.Error("%v: %s", r, buf[:l])
-				} else {
-					log.Error("%v", r)
-				}
-			}
+			util.RecoverAndLog()
 		}()
 
 		f()
@@ -56,15 +47,7 @@ func (g *Go) Go(f func(), cb func()) {
 func (g *Go) Cb(cb func()) {
 	defer func() {
 		g.pendingGo--
-		if r := recover(); r != nil {
-			if conf.LenStackBuf > 0 {
-				buf := make([]byte, conf.LenStackBuf)
-				l := runtime.Stack(buf, false)
-				log.Error("%v: %s", r, buf[:l])
-			} else {
-				log.Error("%v", r)
-			}
-		}
+		util.RecoverAndLog()
 	}()
 
 	if cb != nil {
@@ -106,15 +89,7 @@ func (c *LinearContext) Go(f func(), cb func()) {
 
 		defer func() {
 			c.g.ChanCb <- e.cb
-			if r := recover(); r != nil {
-				if conf.LenStackBuf > 0 {
-					buf := make([]byte, conf.LenStackBuf)
-					l := runtime.Stack(buf, false)
-					log.Error("%v: %s", r, buf[:l])
-				} else {
-					log.Error("%v", r)
-				}
-			}
+			util.RecoverAndLog()
 		}()
 
 		e.f()

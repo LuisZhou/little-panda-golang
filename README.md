@@ -8,7 +8,7 @@ LPGE is Acronym of Little Panda Golang Engin. Little Panda is my wife's nickname
 + Good document
 
 ## todo
-
++ need another server in gate which is used to cluster.
 + test ws + protobuf.
 + network module should support tcp/udp, ws, ipv4/ipv6;
 + database should support mongodb, mysql;
