@@ -3,45 +3,28 @@ package timer
 import (
 	"github.com/LuisZhou/lpge/conf"
 	"github.com/LuisZhou/lpge/log"
+	"github.com/LuisZhou/lpge/util"
 	"runtime"
 	"time"
 )
 
-// Dispatcher make control of the timer, make the callback of the timer serialize execute in the FIFO.
-// One dispatcher per goroutine (goroutine not safe)
-type Dispatcher struct {
-	ChanTimer chan *Timer
-}
-
-func NewDispatcher(l int) *Dispatcher {
-	disp := new(Dispatcher)
-	disp.ChanTimer = make(chan *Timer, l)
-	return disp
-}
-
-// Timer
+// Timer compose sys timer and cb.
 type Timer struct {
 	t  *time.Timer
 	cb func()
 }
 
+// Stop can stop sys timer anytime.
 func (t *Timer) Stop() {
 	t.t.Stop()
 	t.cb = nil
 }
 
+// Cb execute cb of Timer.
 func (t *Timer) Cb() {
 	defer func() {
 		t.cb = nil
-		if r := recover(); r != nil {
-			if conf.LenStackBuf > 0 {
-				buf := make([]byte, conf.LenStackBuf)
-				l := runtime.Stack(buf, false)
-				log.Error("%v: %s", r, buf[:l])
-			} else {
-				log.Error("%v", r)
-			}
-		}
+		util.RecoverAndLog()
 	}()
 
 	if t.cb != nil {
@@ -49,6 +32,19 @@ func (t *Timer) Cb() {
 	}
 }
 
+// Dispatcher make control of the timer, make the callback of the timer serialize execute in the FIFO.
+type Dispatcher struct {
+	ChanTimer chan *Timer
+}
+
+// Create a new time dispatch.
+func NewDispatcher(l int) *Dispatcher {
+	disp := new(Dispatcher)
+	disp.ChanTimer = make(chan *Timer, l)
+	return disp
+}
+
+// AfterFunc push a Timer in channel after d.
 func (disp *Dispatcher) AfterFunc(d time.Duration, cb func()) *Timer {
 	t := new(Timer)
 	t.cb = cb
@@ -58,17 +54,19 @@ func (disp *Dispatcher) AfterFunc(d time.Duration, cb func()) *Timer {
 	return t
 }
 
-// Cron
+// Cron schedule AfterFunc-job.
 type Cron struct {
 	t *Timer
 }
 
+// Stop timer of Cron.
 func (c *Cron) Stop() {
 	if c.t != nil {
 		c.t.Stop()
 	}
 }
 
+// Start cron func.
 func (disp *Dispatcher) CronFunc(cronExpr *CronExpr, _cb func()) *Cron {
 	c := new(Cron)
 

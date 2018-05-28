@@ -7,30 +7,20 @@ import (
 	"sync"
 )
 
+// Go is a type that provides linear execute call of function.
 type Go struct {
 	ChanCb    chan func()
 	pendingGo int
 }
 
-type LinearGo struct {
-	f  func()
-	cb func()
-}
-
-type LinearContext struct {
-	g              *Go
-	linearGo       *list.List
-	mutexLinearGo  sync.Mutex
-	mutexExecution sync.Mutex
-}
-
+// New create a go instance.
 func New(l int) *Go {
 	g := new(Go)
 	g.ChanCb = make(chan func(), l)
 	return g
 }
 
-// Go to execute f, and linear call cb.
+// Go to execute f, and linear call cb. No routine-protect for execute of f. each f execute in seperate goroutine.
 func (g *Go) Go(f func(), cb func()) {
 	g.pendingGo++
 
@@ -44,6 +34,7 @@ func (g *Go) Go(f func(), cb func()) {
 	}()
 }
 
+// Cb execute cb.
 func (g *Go) Cb(cb func()) {
 	defer func() {
 		g.pendingGo--
@@ -55,16 +46,33 @@ func (g *Go) Cb(cb func()) {
 	}
 }
 
+// Close execute all pending cb in g.
 func (g *Go) Close() {
 	for g.pendingGo > 0 {
 		g.Cb(<-g.ChanCb)
 	}
 }
 
+// Idle return if g is idle.
 func (g *Go) Idle() bool {
 	return g.pendingGo == 0
 }
 
+// LinearGo is struct composes f and cb.
+type LinearGo struct {
+	f  func()
+	cb func()
+}
+
+// LinearContext is a type that provides linear execute linearGo.
+type LinearContext struct {
+	g              *Go
+	linearGo       *list.List
+	mutexLinearGo  sync.Mutex
+	mutexExecution sync.Mutex
+}
+
+// NewLinearContext create a new LinearContext.
 func (g *Go) NewLinearContext() *LinearContext {
 	c := new(LinearContext)
 	c.g = g
@@ -72,6 +80,7 @@ func (g *Go) NewLinearContext() *LinearContext {
 	return c
 }
 
+// Go start execute linearGo in list of LinearContext.
 func (c *LinearContext) Go(f func(), cb func()) {
 	c.g.pendingGo++
 
