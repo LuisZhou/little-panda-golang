@@ -91,7 +91,7 @@ func (s *Skeleton) NewLinearContext() *g.LinearContext {
 }
 
 // RegisterCommand register command.
-func (s *Skeleton) RegisterCommand(name string, help string, f interface{}) {
+func (s *Skeleton) RegisterCommand(name string, help string, f func([]interface{}) (interface{}, error)) {
 	console.Register(name, help, f, s.commandServer)
 }
 

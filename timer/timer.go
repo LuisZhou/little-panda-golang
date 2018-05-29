@@ -1,10 +1,7 @@
 package timer
 
 import (
-	"github.com/LuisZhou/lpge/conf"
-	"github.com/LuisZhou/lpge/log"
 	"github.com/LuisZhou/lpge/util"
-	"runtime"
 	"time"
 )
 
