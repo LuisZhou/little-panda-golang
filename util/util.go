@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"github.com/LuisZhou/lpge/conf"
 	"github.com/LuisZhou/lpge/log"
 	"runtime"
@@ -36,14 +37,16 @@ func CamelCaseToUnderscore(str string) string {
 	return string(output)
 }
 
-func RecoverAndLog() {
+func recoverAndLog() (err error) {
 	if r := recover(); r != nil {
 		if conf.LenStackBuf > 0 {
 			buf := make([]byte, conf.LenStackBuf)
 			l := runtime.Stack(buf, false)
-			log.Error("%v: %s", r, buf[:l])
+			err = fmt.Errorf("%v: %s", r, buf[:l])
 		} else {
-			log.Error("%v", r)
+			err = fmt.Errorf("%v", r)
 		}
+		log.Error(err.Error())
 	}
+	return
 }

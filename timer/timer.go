@@ -1,7 +1,10 @@
 package timer
 
 import (
-	"github.com/LuisZhou/lpge/util"
+	"fmt"
+	"github.com/LuisZhou/lpge/conf"
+	"github.com/LuisZhou/lpge/log"
+	"runtime"
 	"time"
 )
 
@@ -21,7 +24,17 @@ func (t *Timer) Stop() {
 func (t *Timer) Cb() {
 	defer func() {
 		t.cb = nil
-		util.RecoverAndLog()
+		if r := recover(); r != nil {
+			var err error
+			if conf.LenStackBuf > 0 {
+				buf := make([]byte, conf.LenStackBuf)
+				l := runtime.Stack(buf, false)
+				err = fmt.Errorf("%v: %s", r, buf[:l])
+			} else {
+				err = fmt.Errorf("%v", r)
+			}
+			log.Error(err.Error())
+		}
 	}()
 
 	if t.cb != nil {

@@ -66,6 +66,11 @@ func (s *Server) Register(id interface{}, f func([]interface{}) (ret interface{}
 	s.functions[id] = f
 }
 
+// SetHandlers
+func (s *Server) SetHandlers(m map[interface{}]interface{}) {
+	s.functions = m
+}
+
 // ret write result to channel provided by ci.
 func (s *Server) ret(ci *CallInfo, ri *RetInfo) (err error) {
 	if ci.chanRet == nil {

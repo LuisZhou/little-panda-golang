@@ -119,3 +119,8 @@ func (s *Skeleton) GetChanrpcServer() *chanrpc.Server {
 func (s *Skeleton) RegisterChanRPC(id interface{}, f func([]interface{}) (interface{}, error)) {
 	s.server.Register(id, f)
 }
+
+// SetChanRPCHandle set rpc handlers.
+func (s *Skeleton) SetChanRPCHandlers(m map[interface{}]interface{}) {
+	s.server.SetHandlers(m)
+}

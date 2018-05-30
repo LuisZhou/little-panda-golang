@@ -3,7 +3,10 @@ package g
 
 import (
 	"container/list"
-	"github.com/LuisZhou/lpge/util"
+	"fmt"
+	"github.com/LuisZhou/lpge/conf"
+	"github.com/LuisZhou/lpge/log"
+	"runtime"
 	"sync"
 )
 
@@ -27,7 +30,17 @@ func (g *Go) Go(f func(), cb func()) {
 	go func() {
 		defer func() {
 			g.ChanCb <- cb
-			util.RecoverAndLog()
+			if r := recover(); r != nil {
+				var err error
+				if conf.LenStackBuf > 0 {
+					buf := make([]byte, conf.LenStackBuf)
+					l := runtime.Stack(buf, false)
+					err = fmt.Errorf("%v: %s", r, buf[:l])
+				} else {
+					err = fmt.Errorf("%v", r)
+				}
+				log.Error(err.Error())
+			}
 		}()
 
 		f()
@@ -38,7 +51,17 @@ func (g *Go) Go(f func(), cb func()) {
 func (g *Go) Cb(cb func()) {
 	defer func() {
 		g.pendingGo--
-		util.RecoverAndLog()
+		if r := recover(); r != nil {
+			var err error
+			if conf.LenStackBuf > 0 {
+				buf := make([]byte, conf.LenStackBuf)
+				l := runtime.Stack(buf, false)
+				err = fmt.Errorf("%v: %s", r, buf[:l])
+			} else {
+				err = fmt.Errorf("%v", r)
+			}
+			log.Error(err.Error())
+		}
 	}()
 
 	if cb != nil {
@@ -98,7 +121,17 @@ func (c *LinearContext) Go(f func(), cb func()) {
 
 		defer func() {
 			c.g.ChanCb <- e.cb
-			util.RecoverAndLog()
+			if r := recover(); r != nil {
+				var err error
+				if conf.LenStackBuf > 0 {
+					buf := make([]byte, conf.LenStackBuf)
+					l := runtime.Stack(buf, false)
+					err = fmt.Errorf("%v: %s", r, buf[:l])
+				} else {
+					err = fmt.Errorf("%v", r)
+				}
+				log.Error(err.Error())
+			}
 		}()
 
 		e.f()
