@@ -133,19 +133,23 @@ func Export(logger *Logger) {
 }
 
 func Debug(format string, a ...interface{}) {
-	gLogger.doPrintf(debugLevel, printDebugLevel, format, a...)
+	//gLogger.doPrintf(debugLevel, printDebugLevel, format, a...)
+	gLogger.Debug(format, a...)
 }
 
 func Release(format string, a ...interface{}) {
-	gLogger.doPrintf(releaseLevel, printReleaseLevel, format, a...)
+	//gLogger.doPrintf(releaseLevel, printReleaseLevel, format, a...)
+	gLogger.Release(format, a...)
 }
 
 func Error(format string, a ...interface{}) {
-	gLogger.doPrintf(errorLevel, printErrorLevel, format, a...)
+	//gLogger.doPrintf(errorLevel, printErrorLevel, format, a...)
+	gLogger.Error(format, a...)
 }
 
 func Fatal(format string, a ...interface{}) {
-	gLogger.doPrintf(fatalLevel, printFatalLevel, format, a...)
+	// gLogger.doPrintf(fatalLevel, printFatalLevel, format, a...)
+	gLogger.Fatal(format, a...)
 }
 
 func Close() {
