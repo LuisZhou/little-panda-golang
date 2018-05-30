@@ -1,12 +1,12 @@
 package log_test
 
 import (
-	"github.com/name5566/leaf/log"
+	"github.com/LuisZhou/lpge/log"
 	l "log"
 )
 
 func Example() {
-	name := "Leaf"
+	name := "LPGE"
 
 	log.Debug("My name is %v", name)
 	log.Release("My name is %v", name)
@@ -26,6 +26,4 @@ func Example() {
 
 	log.Debug("will not print")
 	log.Release("My name is %v", name)
-
-	// Output: hello
 }

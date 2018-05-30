@@ -1,3 +1,4 @@
+// Package protobuf is a processor that Marshal/Unmarshal from/to proto-type data to/from stream of byte.
 package protobuf
 
 import (

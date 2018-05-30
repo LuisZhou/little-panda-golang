@@ -1,3 +1,4 @@
+// Package json is a processor that Marshal/Unmarshal from/to json-type data to/from stream of byte.
 package json
 
 import (

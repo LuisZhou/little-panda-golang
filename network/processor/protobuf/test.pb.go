@@ -10,6 +10,7 @@ It is generated from these files:
 It has these top-level messages:
 	Person
 */
+
 package protobuf
 
 import proto "github.com/golang/protobuf/proto"
