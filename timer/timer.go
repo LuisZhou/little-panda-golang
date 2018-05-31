@@ -1,3 +1,4 @@
+// Package timer privder wrapper of timer and schedule task for module.
 package timer
 
 import (

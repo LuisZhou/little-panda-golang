@@ -1,10 +1,7 @@
+// Package util provide independent utility.
 package util
 
 import (
-	"fmt"
-	"github.com/LuisZhou/lpge/conf"
-	"github.com/LuisZhou/lpge/log"
-	"runtime"
 	"unicode"
 )
 
@@ -35,18 +32,4 @@ func CamelCaseToUnderscore(str string) string {
 	}
 	output = addSegment(output, segment)
 	return string(output)
-}
-
-func recoverAndLog() (err error) {
-	if r := recover(); r != nil {
-		if conf.LenStackBuf > 0 {
-			buf := make([]byte, conf.LenStackBuf)
-			l := runtime.Stack(buf, false)
-			err = fmt.Errorf("%v: %s", r, buf[:l])
-		} else {
-			err = fmt.Errorf("%v", r)
-		}
-		log.Error(err.Error())
-	}
-	return
 }

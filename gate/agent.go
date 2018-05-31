@@ -11,16 +11,16 @@ import (
 )
 
 // Agent for client of ws or tcp.
-type Agent interface {
-	Run()                                      // run start running, normaly process the msg.
-	WriteMsg(cmd uint16, msg interface{})      // write msg to message.
-	LocalAddr() net.Addr                       // get local addr
-	RemoteAddr() net.Addr                      // get remote addr
-	Close()                                    // close agent.
-	UserData() interface{}                     // get user data of the agent.
-	SetUserData(data interface{})              // set user data of the agent.
-	GoRpc(id interface{}, args ...interface{}) // GoRpc do a async call to this Skeleton's rpc server, but no async ret.
-}
+// type Agent interface {
+// 	Run()                                      // run start running, normaly process the msg.
+// 	WriteMsg(cmd uint16, msg interface{})      // write msg to message.
+// 	LocalAddr() net.Addr                       // get local addr
+// 	RemoteAddr() net.Addr                      // get remote addr
+// 	Close()                                    // close agent.
+// 	UserData() interface{}                     // get user data of the agent.
+// 	SetUserData(data interface{})              // set user data of the agent.
+// 	GoRpc(id interface{}, args ...interface{}) // GoRpc do a async call to this Skeleton's rpc server, but no async ret.
+// }
 
 // Implement of Agent.
 type AgentTemplate struct {

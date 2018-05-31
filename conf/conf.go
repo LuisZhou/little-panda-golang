@@ -1,3 +1,4 @@
+// Package conf defines configuration of server.
 package conf
 
 type ModuleConfig struct {

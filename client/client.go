@@ -1,3 +1,4 @@
+// Package client implements client for testing.
 package main
 
 import (

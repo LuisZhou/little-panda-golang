@@ -1,3 +1,4 @@
+// Package db create connection of different database.
 package db
 
 import (

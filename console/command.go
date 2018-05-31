@@ -1,3 +1,4 @@
+// Package console implement console server for command line.
 package console
 
 import (
