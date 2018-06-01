@@ -3,7 +3,7 @@ package gate
 
 import (
 	"github.com/LuisZhou/lpge/conf"
-	_ "github.com/LuisZhou/lpge/log"
+	"github.com/LuisZhou/lpge/log"
 	"github.com/LuisZhou/lpge/module"
 	"github.com/LuisZhou/lpge/network"
 	"time"
@@ -47,6 +47,7 @@ func (gate *Gate) Run(closeSig chan bool) {
 			return a
 		}
 	}
+	log.Debug("Ws server listen on %s", gate.WSAddr)
 
 	var tcpServer *network.TCPServer
 	if gate.TCPAddr != "" {
@@ -62,6 +63,7 @@ func (gate *Gate) Run(closeSig chan bool) {
 			return a
 		}
 	}
+	log.Debug("Tcp server listen on %s", gate.TCPAddr)
 
 	if wsServer != nil {
 		wsServer.Start()
