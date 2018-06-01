@@ -5,6 +5,7 @@ import (
 	"github.com/LuisZhou/lpge/console"
 	"github.com/LuisZhou/lpge/log"
 	"github.com/LuisZhou/lpge/module"
+	"github.com/LuisZhou/lpge/orm"
 	"os"
 	"os/signal"
 )
@@ -18,6 +19,15 @@ func Run(mods map[string]module.Module) {
 		}
 		log.Export(logger)
 		defer logger.Close()
+	}
+
+	if conf.DBConfig.Default != "" {
+		conns := make(map[string]string)
+		conns["mysql"] = conf.DBConfig.Mysql
+		conns["postgres"] = conf.DBConfig.Postgres
+		conns["sqlite"] = conf.DBConfig.Sqlite
+		conns["mssql"] = conf.DBConfig.Mssql
+		orm.Connect(conns, conf.DBConfig.Default)
 	}
 
 	log.Release("LPGE %v starting up", 1.0)

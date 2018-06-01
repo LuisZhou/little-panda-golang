@@ -9,6 +9,14 @@ type ModuleConfig struct {
 	TimeoutAsynRet     int
 }
 
+type DbConfig struct {
+	Default  string
+	Mysql    string
+	Postgres string
+	Sqlite   string
+	Mssql    string
+}
+
 var (
 	LenStackBuf = 4096
 
@@ -35,4 +43,7 @@ var (
 
 	// function module config
 	FunctionConfig ModuleConfig
+
+	// db config
+	DBConfig DbConfig
 )

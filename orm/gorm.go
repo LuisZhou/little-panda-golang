@@ -1,7 +1,6 @@
 package orm
 
 import (
-	//_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	// _ "github.com/jinzhu/gorm/dialects/postgres"
 	// _ "github.com/jinzhu/gorm/dialects/sqlite"
@@ -18,11 +17,13 @@ func Connect(info map[string]string, _default string) {
 	connections = make(map[string]*gorm.DB)
 
 	for k, v := range info {
-		db, err := gorm.Open(k, v)
-		if err != nil {
-			panic("failed to connect database")
+		if v != "" {
+			db, err := gorm.Open(k, v)
+			if err != nil {
+				panic("failed to connect database")
+			}
+			connections[k] = db
 		}
-		connections[k] = db
 	}
 
 	defaultConn = connections[_default]

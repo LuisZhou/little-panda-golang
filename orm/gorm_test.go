@@ -14,7 +14,7 @@ type Product struct {
 
 func TestDb(t *testing.T) {
 	conns := make(map[string]string)
-	conns["mysql"] = "www_db_admin:tankgogoGo123@(192.168.163.133)/ww?charset=utf8&parseTime=true&loc=Local"
+	conns["mysql"] = "usr:pw@(192.168.163.133)/ww?charset=utf8&parseTime=true&loc=Local"
 
 	orm.Connect(conns, "mysql")
 
