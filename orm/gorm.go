@@ -2,6 +2,7 @@ package orm
 
 import (
 	_ "github.com/jinzhu/gorm/dialects/mysql"
+	"strings"
 	// _ "github.com/jinzhu/gorm/dialects/postgres"
 	// _ "github.com/jinzhu/gorm/dialects/sqlite"
 	// _ "github.com/jinzhu/gorm/dialects/mssql"
@@ -26,7 +27,7 @@ func Connect(info map[string]string, _default string) {
 		}
 	}
 
-	defaultConn = connections[_default]
+	defaultConn = connections[strings.ToLower(_default)]
 }
 
 func Default() *gorm.DB {
