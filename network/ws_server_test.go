@@ -53,7 +53,7 @@ func (a *TestAgent) OnClose() {
 	wg.Done()
 }
 
-func TestNewTcpServer(t *testing.T) {
+func TestNewWsServer(t *testing.T) {
 	wg.Add(3)
 
 	tcpServer := new(network.WSServer)

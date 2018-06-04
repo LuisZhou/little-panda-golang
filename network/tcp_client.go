@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"github.com/LuisZhou/lpge/log"
 	"net"
 	"sync"
@@ -20,7 +21,6 @@ type TCPClient struct {
 	closeFlag       bool
 
 	// msg parser
-	LenMsgLen    int
 	MinMsgLen    uint16
 	MaxMsgLen    uint16
 	LittleEndian bool
@@ -82,12 +82,13 @@ func (client *TCPClient) dial() net.Conn {
 	}
 }
 
-func (client *TCPClient) connect() {
+func (client *TCPClient) connect() (err error) {
 	defer client.wg.Done()
 
 reconnect:
 	conn := client.dial()
 	if conn == nil {
+		err = fmt.Errorf("can not connect to server")
 		return
 	}
 
@@ -95,6 +96,7 @@ reconnect:
 	if client.closeFlag {
 		client.Unlock()
 		conn.Close()
+		err = fmt.Errorf("client has closed")
 		return
 	}
 
@@ -116,6 +118,8 @@ reconnect:
 		time.Sleep(client.ConnectInterval)
 		goto reconnect
 	}
+
+	return
 }
 
 func (client *TCPClient) Close() {
@@ -128,4 +132,8 @@ func (client *TCPClient) Close() {
 	client.Unlock()
 
 	client.wg.Wait()
+}
+
+func (client *TCPClient) Conns() ConnSet {
+	return client.conns
 }

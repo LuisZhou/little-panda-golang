@@ -28,6 +28,10 @@ func Connect(info map[string]string, _default string) {
 	}
 
 	defaultConn = connections[strings.ToLower(_default)]
+
+	if defaultConn == nil {
+		panic("default db connection is nil")
+	}
 }
 
 func Default() *gorm.DB {

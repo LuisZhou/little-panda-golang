@@ -73,9 +73,11 @@ func (a *AgentTemplate) Run() {
 
 // OnClose is called when the connection is destoried.
 func (a *AgentTemplate) OnClose() {
-	_, err := chanrpc.SynCall(a.gate.Skeleton.GetChanrpcServer(), "CloseAgent", a)
-	if err != nil {
-		log.Error("chanrpc error: %v", err)
+	if a.gate != nil {
+		_, err := chanrpc.SynCall(a.gate.Skeleton.GetChanrpcServer(), "CloseAgent", a)
+		if err != nil {
+			log.Error("chanrpc error: %v", err)
+		}
 	}
 	a.closeChan <- true
 }

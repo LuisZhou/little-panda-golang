@@ -17,6 +17,7 @@ type TestAgent struct {
 	conn network.Conn
 }
 
+// is a echo server/client
 func (a *TestAgent) Run() {
 	for {
 		cmd, data, err := a.conn.ReadMsg()
@@ -39,10 +40,26 @@ func (a *TestAgent) OnClose() {
 	wg.Done()
 }
 
-func TestNewTcpServer(t *testing.T) {
-	// start server
-	wg.Add(1)
+func newClient(addr string) *network.TCPClient {
+	tcpClient := &network.TCPClient{
+		Addr:            addr,
+		ConnNum:         1,
+		ConnectInterval: 1 * time.Second,
+		PendingWriteNum: 100,
+		NewAgent: func(conn *network.TCPConn) network.Agent {
+			a := &TestAgent{conn: conn}
+			wg.Done()
+			return a
+		},
+		MinMsgLen:    0,
+		MaxMsgLen:    4096,
+		LittleEndian: true,
+	}
+	tcpClient.Start()
+	return tcpClient
+}
 
+func newServer() *network.TCPServer {
 	tcpServer := new(network.TCPServer)
 	tcpServer.Addr = "localhost:6001"
 	tcpServer.MaxConnNum = 100
@@ -50,11 +67,20 @@ func TestNewTcpServer(t *testing.T) {
 	tcpServer.MaxMsgLen = 0
 	tcpServer.LittleEndian = true
 	tcpServer.NewAgent = func(conn *network.TCPConn) network.Agent {
+		fmt.Println("new client come")
 		a := &TestAgent{conn: conn}
 		wg.Done()
 		return a
 	}
 	tcpServer.Start()
+	return tcpServer
+}
+
+func TestNewTcpServer(t *testing.T) {
+	// start server
+	wg.Add(1)
+
+	tcpServer := newServer()
 
 	// client
 
@@ -91,4 +117,21 @@ func TestNewTcpServer(t *testing.T) {
 	tcpServer.Close()
 
 	time.Sleep(1 * time.Second)
+}
+
+func TestNewTcpClient(t *testing.T) {
+	wg.Add(2)
+
+	tcpServer := newServer()
+	client := newClient(tcpServer.Addr)
+
+	wg.Wait()
+
+	wg.Add(2)
+
+	// danger!
+	for conn := range client.Conns() {
+		conn.WriteMsg(1, []byte("测试"))
+	}
+	wg.Wait()
 }
