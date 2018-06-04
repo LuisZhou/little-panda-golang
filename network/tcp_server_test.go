@@ -47,6 +47,7 @@ func newClient(addr string) *network.TCPClient {
 		ConnectInterval: 1 * time.Second,
 		PendingWriteNum: 100,
 		NewAgent: func(conn *network.TCPConn) network.Agent {
+			fmt.Println("connect server ok")
 			a := &TestAgent{conn: conn}
 			wg.Done()
 			return a
@@ -126,6 +127,8 @@ func TestNewTcpClient(t *testing.T) {
 	client := newClient(tcpServer.Addr)
 
 	wg.Wait()
+
+	fmt.Println("what?")
 
 	wg.Add(2)
 
