@@ -137,4 +137,5 @@ func TestNewTcpClient(t *testing.T) {
 		conn.WriteMsg(1, []byte("测试"))
 	}
 	wg.Wait()
+
 }
