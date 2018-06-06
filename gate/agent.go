@@ -66,7 +66,7 @@ func (a *AgentTemplate) Run() {
 				log.Debug("unmarshal message error: %v", err)
 				break
 			}
-			a.GoRpc(cmd, a, msg)
+			a.GoRpc(cmd, a.UserData(), msg)
 		}
 	}
 }
